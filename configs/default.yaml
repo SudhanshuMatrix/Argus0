@@ -1,0 +1,39 @@
+# Argus Default Configuration
+# ============================================================================
+# All duration values use Go's time.Duration format:
+#   5s  = 5 seconds
+#   30s = 30 seconds
+#   1m  = 1 minute
+# ============================================================================
+
+agent:
+  # Network interface to attach the eBPF TC programs to.
+  # In Kubernetes DaemonSet mode, you may want to use "eth0" or derive the
+  # interface from the NODE_INTERFACE env variable in your pod spec.
+  interface: "eth0"
+
+  # How often the Go agent reads the BPF flow_map and emits metrics.
+  # Lower values give finer granularity but increase CPU usage.
+  # During testing I found 5s is a reasonable default and giving good results.
+  collect_interval: 5s
+
+  # TTL for the process metadata cache (PID → comm, container ID).
+  # Shorter TTL means more accurate attribution at the cost of more /proc reads.
+  # Again in testing I found 30s is a reasonable default and giving good results.
+  cache_ttl: 30s
+
+prometheus:
+  # Address for the Prometheus /metrics HTTP endpoint.
+  # Kubernetes Prometheus scraping via annotation:
+  #   prometheus.io/scrape: "true"
+  #   prometheus.io/port: "9090"
+  #   prometheus.io/path: "/metrics"
+  listen_addr: ":9090"
+
+logging:
+  # Log level: trace | debug | info | warn | error
+  # Use "debug" during development, "info" in production.
+  level: "info"
+
+  # Log format: "json" (structured, for ELK/Loki/GCP) or "text" (human-readable)
+  format: "json"
