@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus eBPF Network Observer</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --panel-bg: #ffffff;
+            --border-color: #cbd5e1;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --ingress-blue: #2563eb;
+            --egress-red: #dc2626;
+            --udp-orange: #ea580c;
+            --icmp-dark: #991b1b;
+            --other-grey: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 3rem;
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .logo-image {
+            height: 44px;
+            width: auto;
+            border: 1px solid var(--border-color);
+            padding: 2px;
+            background: #ffffff;
+            display: block;
+        }
+
+        .logo-details h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-main);
+            line-height: 1.1;
+        }
+
+        .logo-details .subtitle {
+            font-size: 0.725rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 0.1rem;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .tabs-container {
+            display: flex;
+            border: 1px solid var(--border-color);
+            background: #f8fafc;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 1.25rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(148, 163, 184, 0.1);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: var(--ingress-blue);
+        }
+
+        .meta-badges {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .meta-badge {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.9rem;
+            font-size: 0.775rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-main);
+        }
+
+        .meta-badge strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.775rem;
+            font-weight: 600;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.5rem 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            display: inline-block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.775rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .metric-icon {
+            font-size: 0.9rem;
+        }
+
+        .metric-card.ingress .metric-icon {
+            color: var(--ingress-blue);
+        }
+
+        .metric-card.egress .metric-icon {
+            color: var(--egress-red);
+        }
+
+        .metric-card.packets .metric-icon {
+            color: var(--ingress-blue);
+        }
+
+        .metric-card.flows .metric-icon {
+            color: var(--ingress-blue);
+        }
+
+        .metric-value {
+            font-size: 2.1rem;
+            font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.03em;
+            color: var(--text-main);
+            margin: 0.4rem 0 0.2rem 0;
+        }
+
+        .metric-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-height: 280px;
+            max-height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tables-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .tables-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 520px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            padding: 0.6rem 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1;
+            font-size: 0.725rem;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th.sortable:hover {
+            background: #e2e8f0;
+            color: var(--text-main);
+        }
+
+        td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid #e2e8f0;
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f8fafc;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.775rem;
+            color: var(--text-main);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.35rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            border: 1px solid var(--border-color);
+        }
+
+        .badge.tcp {
+            background: rgba(37, 99, 235, 0.06);
+            color: var(--ingress-blue);
+            border-color: rgba(37, 99, 235, 0.25);
+        }
+
+        .badge.udp {
+            background: rgba(220, 38, 38, 0.06);
+            color: var(--egress-red);
+            border-color: rgba(220, 38, 38, 0.25);
+        }
+
+        .badge.icmp {
+            background: rgba(153, 27, 27, 0.06);
+            color: var(--icmp-dark);
+            border-color: rgba(153, 27, 27, 0.25);
+        }
+
+        .badge.other {
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--text-muted);
+        }
+
+        .badge.l7-http {
+            background: rgba(16, 185, 129, 0.06);
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .badge.l7-tls {
+            background: rgba(124, 58, 237, 0.06);
+            color: #7c3aed;
+            border-color: rgba(124, 58, 237, 0.25);
+        }
+
+        .badge.l7-dns {
+            background: rgba(217, 119, 6, 0.06);
+            color: #d97706;
+            border-color: rgba(217, 119, 6, 0.25);
+        }
+
+        .badge.l7-ssh {
+            background: rgba(13, 148, 136, 0.06);
+            color: #0d9488;
+            border-color: rgba(13, 148, 136, 0.25);
+        }
+
+        .search-bar {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.3rem 0.65rem;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+            width: 100%;
+            max-width: 220px;
+        }
+
+        .search-bar:focus {
+            border-color: var(--ingress-blue);
+        }
+
+        .pid-tag {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-left: 0.3rem;
+        }
+
+        .proc-name {
+            font-weight: 600;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .container-id {
+            color: var(--ingress-blue);
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 0.1rem;
+        }
+
+        .bytes-col {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.775rem;
+            text-align: right;
+        }
+
+        .bytes-col.header-right {
+            text-align: right;
+        }
+
+        .btn-inspect {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-inspect:hover {
+            background: var(--ingress-blue);
+            border-color: var(--ingress-blue);
+            color: #ffffff;
+        }
+
+        .pill-filters {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .pill-btn {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.3rem 0.75rem;
+            font-size: 0.725rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pill-btn:hover {
+            color: var(--text-main);
+            border-color: var(--text-main);
+        }
+
+        .pill-btn.active {
+            color: #ffffff;
+            background: var(--text-main);
+            border-color: var(--text-main);
+        }
+
+        .health-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.725rem;
+            font-weight: 700;
+        }
+
+        .health-tag.optimal {
+            color: #22c55e;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            padding: 3rem 1rem;
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .empty-state i {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header>
+            <div class="logo-section">
+                <img src="/logo.png" class="logo-image" alt="ARGUS" onerror="this.style.display='none'">
+                <div class="logo-details">
+                    <h1>ARGUS OBSERVER</h1>
+                    <div class="subtitle">EBPF KERNEL NETWORK DIAGNOSTICS</div>
+                </div>
+            </div>
+
+            <div class="header-controls">
+                <div class="tabs-container">
+                    <button class="tab-btn active" id="tab-overview" onclick="switchTab('overview')">[ OVERVIEW
+                        ]</button>
+                    <button class="tab-btn" id="tab-processes" onclick="switchTab('processes')">[ PROCESS DIAGNOSTICS
+                        ]</button>
+                </div>
+
+                <div class="meta-badges">
+                    <div class="meta-badge">
+                        IFACE: <strong id="iface-name">--</strong>
+                    </div>
+                    <div class="meta-badge">
+                        UPTIME: <strong id="uptime">0s</strong>
+                    </div>
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        <span>ONLINE</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="metrics-grid">
+            <div class="metric-card ingress">
+                <div class="metric-header">
+                    <span>TRAFFIC INGRESS</span>
+                    <i class="fa-solid fa-arrow-down metric-icon"></i>
+                </div>
+                <div>
+                    <div class="metric-value" id="val-ingress">0 B</div>
+                    <div class="metric-desc">Total downloaded byte volume</div>
+                </div>
+            </div>
+
+            <div class="metric-card egress">
+                <div class="metric-header">
+                    <span>TRAFFIC EGRESS</span>
+                    <i class="fa-solid fa-arrow-up metric-icon"></i>
+                </div>
+                <div>
+                    <div class="metric-value" id="val-egress">0 B</div>
+                    <div class="metric-desc">Total uploaded byte volume</div>
+                </div>
+            </div>
+
+            <div class="metric-card packets">
+                <div class="metric-header">
+                    <span>PACKETS COUNT</span>
+                    <i class="fa-solid fa-file-waveform metric-icon"></i>
+                </div>
+                <div>
+                    <div class="metric-value" id="val-packets">0</div>
+                    <div class="metric-desc">Total network frames parsed</div>
+                </div>
+            </div>
+
+            <div class="metric-card flows">
+                <div class="metric-header">
+                    <span>ACTIVE FLOWS</span>
+                    <i class="fa-solid fa-link metric-icon"></i>
+                </div>
+                <div>
+                    <div class="metric-value" id="val-flows">0</div>
+                    <div class="metric-desc">Unique tracked network connections</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="content-overview" class="tab-content active">
+            <div class="charts-row">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">[ BANDWIDTH HISTORY ]</div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="bandwidthChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">[ PROTOCOL_DISTRIBUTION ]</div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="protocolChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tables-row">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">[ TOP_PROCESSES_BY_BANDWIDTH ]</div>
+                        <button class="btn-inspect" onclick="switchTab('processes')">[ View Full Console ]</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="proc-table">
+                            <thead>
+                                <tr>
+                                    <th>PROCESS NAME / PID</th>
+                                    <th class="bytes-col header-right">INGRESS</th>
+                                    <th class="bytes-col header-right">EGRESS</th>
+                                    <th class="bytes-col header-right">FLOWS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="proc-table-body">
+                            </tbody>
+                        </table>
+                        <div id="proc-empty" class="empty-state" style="display: none;">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>No processes detected in this interval</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header" style="padding-bottom: 0.6rem;">
+                        <div class="panel-title">[ ACTIVE_CONNECTIONS ]</div>
+                        <input type="text" id="flow-search" class="search-bar" placeholder="Filter flow records...">
+                    </div>
+                    <div class="table-container">
+                        <table id="flow-table">
+                            <thead>
+                                <tr>
+                                    <th>PROTO</th>
+                                    <th>SOURCE ADDRESS ──► DESTINATION ADDRESS</th>
+                                    <th class="bytes-col header-right">IN / OUT BYTES</th>
+                                    <th class="header-right" style="padding-right: 2rem;">LATENCY</th>
+                                    <th class="header-right" style="padding-right: 2rem;">DURATION</th>
+                                    <th>ATTRIBUTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="flow-table-body">
+                            </tbody>
+                        </table>
+                        <div id="flow-empty" class="empty-state" style="display: none;">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>No connection flow records matched the query</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="content-processes" class="tab-content">
+            <div class="panel">
+                <div class="panel-header" style="padding-bottom: 0.8rem; flex-wrap: wrap; gap: 1rem;">
+                    <div class="panel-title">[ PROCESS DIAGNOSTICS CONSOLE ]</div>
+
+                    <div
+                        style="display: flex; gap: 1rem; flex-grow: 1; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+                        <div class="pill-filters">
+                            <button class="pill-btn active" id="pill-all" onclick="filterProcessCategory('all')">[ All
+                                PIDs ]</button>
+                            <button class="pill-btn" id="pill-ingress" onclick="filterProcessCategory('high-in')">[
+                                Ingress Transmitters ]</button>
+                            <button class="pill-btn" id="pill-egress" onclick="filterProcessCategory('high-out')">[
+                                Egress Transmitters ]</button>
+                            <button class="pill-btn" id="pill-user" onclick="filterProcessCategory('user')">[ User Apps
+                                ]</button>
+                        </div>
+                        <input type="text" id="proc-search-advanced" class="search-bar"
+                            placeholder="Search PID or Name..." oninput="triggerProcessConsoleRender()">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="advanced-proc-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" onclick="setProcessSort('name')">PROCESS NAME <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable" onclick="setProcessSort('pid')">PID <i class="fa-solid fa-sort"
+                                        style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('bytes_in')">INGRESS BYTES <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('bytes_out')">EGRESS BYTES <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('pkts_in')">PACKETS RECEIVED
+                                    <i class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('pkts_out')">PACKETS SENT <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('loss')">LOSS EST. <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th class="sortable header-right" onclick="setProcessSort('flows')">FLOWS COUNT <i
+                                        class="fa-solid fa-sort" style="margin-left: 0.3rem; opacity: 0.6;"></i></th>
+                                <th>HEALTH STATUS</th>
+                                <th style="text-align: center;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="advanced-proc-table-body">
+                        </tbody>
+                    </table>
+                    <div id="advanced-proc-empty" class="empty-state" style="display: none;">
+                        <i class="fa-solid fa-microchip"></i>
+                        <span>No processes found matching your criteria</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="inspect-subpanel" style="display: none;">
+                <div class="panel-header">
+                    <div class="panel-title" id="inspect-panel-title">[ INSPECTING NETWORK STREAMS ]</div>
+                    <button class="btn-inspect" onclick="clearInspectFilter()">[ Clear Inspection Filter ]</button>
+                </div>
+                <div class="table-container">
+                    <table id="inspect-flow-table">
+                        <thead>
+                            <tr>
+                                <th>PROTO</th>
+                                <th>SOURCE ADDRESS ──► DESTINATION ADDRESS</th>
+                                <th class="bytes-col header-right">IN / OUT BYTES</th>
+                                <th class="header-right" style="padding-right: 2rem;">LATENCY</th>
+                                <th class="header-right" style="padding-right: 2rem;">DURATION</th>
+                                <th>ATTRIBUTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inspect-flow-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let bandwidthChartInstance = null;
+        let protocolChartInstance = null;
+
+        let globalFlows = [];
+        let globalStats = null;
+
+        let activeTab = 'overview';
+        let processSortField = 'bytes_out';
+        let processSortDirection = 'desc';
+        let processCategoryFilter = 'all';
+        let inspectPidFilter = null;
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (tabId === 'overview') {
+                document.getElementById('tab-overview').classList.add('active');
+                document.getElementById('content-overview').classList.add('active');
+            } else {
+                document.getElementById('tab-processes').classList.add('active');
+                document.getElementById('content-processes').classList.add('active');
+                triggerProcessConsoleRender();
+            }
+        }
+
+        function filterProcessCategory(category) {
+            processCategoryFilter = category;
+            document.querySelectorAll('.pill-btn').forEach(btn => btn.classList.remove('active'));
+            if (category === 'all') document.getElementById('pill-all').classList.add('active');
+            else if (category === 'high-in') document.getElementById('pill-ingress').classList.add('active');
+            else if (category === 'high-out') document.getElementById('pill-egress').classList.add('active');
+            else if (category === 'user') document.getElementById('pill-user').classList.add('active');
+            triggerProcessConsoleRender();
+        }
+
+        function setProcessSort(field) {
+            if (processSortField === field) {
+                processSortDirection = processSortDirection === 'desc' ? 'asc' : 'desc';
+            } else {
+                processSortField = field;
+                processSortDirection = 'desc';
+            }
+            triggerProcessConsoleRender();
+        }
+
+        function inspectProcessFlows(pid, procName) {
+            inspectPidFilter = pid;
+            document.getElementById('inspect-subpanel').style.display = 'block';
+            document.getElementById('inspect-panel-title').textContent = `[ ACTIVE DIAGNOSTIC STREAMS FOR ${procName.toUpperCase()} (PID: ${pid}) ]`;
+
+            document.getElementById('inspect-subpanel').scrollIntoView({ behavior: 'smooth' });
+            renderInspectionFlows();
+        }
+
+        function clearInspectFilter() {
+            inspectPidFilter = null;
+            document.getElementById('inspect-subpanel').style.display = 'none';
+        }
+
+        function initCharts() {
+            const ctxBandwidth = document.getElementById('bandwidthChart').getContext('2d');
+            bandwidthChartInstance = new Chart(ctxBandwidth, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Ingress',
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.04)',
+                            fill: true,
+                            tension: 0.25,
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#2563eb',
+                            data: []
+                        },
+                        {
+                            label: 'Egress',
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.04)',
+                            fill: true,
+                            tension: 0.25,
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#dc2626',
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#64748b', font: { family: 'Plus Jakarta Sans', size: 11, weight: '500' } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
+                        },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                color: '#64748b',
+                                font: { family: 'JetBrains Mono', size: 9 },
+                                callback: function (value) { return formatBytes(value, 0); }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const ctxProtocol = document.getElementById('protocolChart').getContext('2d');
+            protocolChartInstance = new Chart(ctxProtocol, {
+                type: 'doughnut',
+                data: {
+                    labels: ['TCP', 'UDP', 'ICMP', 'Other'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#2563eb',
+                            '#dc2626',
+                            '#991b1b',
+                            '#cbd5e1'
+                        ],
+                        borderWidth: 3,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#64748b', font: { family: 'Plus Jakarta Sans', size: 11, weight: '500' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function formatUptime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            let result = '';
+            if (h > 0) result += h + 'h ';
+            if (m > 0 || h > 0) result += m + 'm ';
+            result += s + 's';
+            return result;
+        }
+
+        function aggregateProcesses(flows) {
+            const processMap = {};
+
+            flows.forEach(flow => {
+                const pid = flow.pid;
+                if (!pid || pid === 0) return;
+
+                if (!processMap[pid]) {
+                    processMap[pid] = {
+                        pid: pid,
+                        name: flow.process_name || 'unknown',
+                        bytes_in: 0,
+                        bytes_out: 0,
+                        pkts_in: 0,
+                        pkts_out: 0,
+                        flows: 0,
+                        container_id: flow.container_id || '',
+                        loss: 0
+                    };
+                }
+
+                processMap[pid].bytes_in += flow.bytes_ingress || 0;
+                processMap[pid].bytes_out += flow.bytes_egress || 0;
+                processMap[pid].pkts_in += flow.pkts_ingress || 0;
+                processMap[pid].pkts_out += flow.pkts_egress || 0;
+                processMap[pid].flows++;
+            });
+
+            return Object.values(processMap);
+        }
+
+        function renderProcessConsole(processes) {
+            const procBody = document.getElementById('advanced-proc-table-body');
+            procBody.innerHTML = '';
+
+            const filterText = document.getElementById('proc-search-advanced').value.toLowerCase().trim();
+
+            let filtered = processes.filter(p => {
+                if (processCategoryFilter === 'high-in' && p.bytes_in === 0) return false;
+                if (processCategoryFilter === 'high-out' && p.bytes_out === 0) return false;
+                if (processCategoryFilter === 'user' && p.pid < 1000) return false;
+
+                if (filterText) {
+                    return p.name.toLowerCase().includes(filterText) || p.pid.toString().includes(filterText);
+                }
+                return true;
+            });
+
+            filtered.sort((a, b) => {
+                let valA = a[processSortField];
+                let valB = b[processSortField];
+
+                if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+
+                if (valA < valB) return processSortDirection === 'desc' ? 1 : -1;
+                if (valA > valB) return processSortDirection === 'desc' ? -1 : 1;
+                return 0;
+            });
+
+            if (filtered.length === 0) {
+                document.getElementById('advanced-proc-table').style.display = 'none';
+                document.getElementById('advanced-proc-empty').style.display = 'flex';
+                return;
+            }
+
+            document.getElementById('advanced-proc-table').style.display = 'table';
+            document.getElementById('advanced-proc-empty').style.display = 'none';
+
+            filtered.forEach(p => {
+                const tr = document.createElement('tr');
+
+                let healthStatusHtml = `<span class="health-tag optimal"><i class="fa-solid fa-circle-check"></i> STABLE</span>`;
+                if (p.bytes_out > 1024 * 1024 || p.bytes_in > 1024 * 1024) {
+                    healthStatusHtml = `<span class="health-tag optimal" style="color: var(--ingress-blue);"><i class="fa-solid fa-bolt"></i> HIGH-THROUGHPUT</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td>
+                        <span class="proc-name">${escapeHtml(p.name)}</span>
+                        ${p.container_id ? `<div class="container-id"><i class="fa-solid fa-cube"></i> ${p.container_id.substring(0, 12)}</div>` : ''}
+                    </td>
+                    <td class="font-mono">${p.pid}</td>
+                    <td class="bytes-col" style="color: var(--ingress-blue);">${formatBytes(p.bytes_in)}</td>
+                    <td class="bytes-col" style="color: var(--egress-red);">${formatBytes(p.bytes_out)}</td>
+                    <td class="bytes-col">${p.pkts_in.toLocaleString()}</td>
+                    <td class="bytes-col">${p.pkts_out.toLocaleString()}</td>
+                    <td class="bytes-col" style="color: var(--text-muted); font-weight: 500;">0% <span style="font-size: 0.7rem;">(Optimal)</span></td>
+                    <td class="bytes-col" style="font-weight: 600;">${p.flows}</td>
+                    <td>${healthStatusHtml}</td>
+                    <td style="text-align: center;">
+                        <button class="btn-inspect" onclick="inspectProcessFlows(${p.pid}, '${escapeHtml(p.name)}')">[ Inspect Flows ]</button>
+                    </td>
+                `;
+                procBody.appendChild(tr);
+            });
+        }
+
+        function triggerProcessConsoleRender() {
+            const processes = aggregateProcesses(globalFlows);
+            renderProcessConsole(processes);
+        }
+
+        function renderInspectionFlows() {
+            if (!inspectPidFilter) return;
+            const body = document.getElementById('inspect-flow-table-body');
+            body.innerHTML = '';
+
+            const filteredFlows = globalFlows.filter(f => f.pid === inspectPidFilter);
+
+            if (filteredFlows.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No active streams found for inspected process</td></tr>`;
+                return;
+            }
+
+            filteredFlows.forEach(flow => {
+                const tr = document.createElement('tr');
+                let protoClass = 'other';
+                if (flow.protocol === 'TCP') protoClass = 'tcp';
+                else if (flow.protocol === 'UDP') protoClass = 'udp';
+                else if (flow.protocol === 'ICMP') protoClass = 'icmp';
+
+                let l7Badge = '';
+                if (flow.l7_protocol) {
+                    const l7Class = `l7-${flow.l7_protocol.toLowerCase()}`;
+                    l7Badge = ` <span class="badge ${l7Class}">${flow.l7_protocol}</span>`;
+                }
+
+                let latencyText = `<span style="color: #94a3b8;">—</span>`;
+                if (flow.latency_ms && flow.latency_ms > 0) {
+                    latencyText = `<span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 500; font-family: 'JetBrains Mono'; border: 1px solid rgba(14, 165, 233, 0.2);">${flow.latency_ms.toFixed(2)} ms</span>`;
+                }
+
+                let durationText = `<span style="color: #94a3b8;">—</span>`;
+                if (flow.duration_ms && flow.duration_ms > 0) {
+                    let sec = flow.duration_ms / 1000;
+                    if (sec < 1) {
+                        durationText = `<span style="font-family: 'JetBrains Mono'; color: #64748b;">${flow.duration_ms.toFixed(0)} ms</span>`;
+                    } else {
+                        durationText = `<span style="font-family: 'JetBrains Mono'; color: #64748b; font-weight: 500;">${sec.toFixed(1)} s</span>`;
+                    }
+                }
+
+                tr.innerHTML = `
+                    <td>
+                        <span class="badge ${protoClass}">${flow.protocol}</span>${l7Badge}
+                    </td>
+                    <td>
+                        <div class="font-mono">${flow.src_ip}:${flow.src_port} ──►</div>
+                        <div class="font-mono">${flow.dst_ip}:${flow.dst_port}</div>
+                    </td>
+                    <td class="bytes-col">
+                        <div>${formatBytes(flow.bytes_ingress)} /</div>
+                        <div>${formatBytes(flow.bytes_egress)}</div>
+                    </td>
+                    <td class="header-right" style="padding-right: 2rem;">${latencyText}</td>
+                    <td class="header-right" style="padding-right: 2rem;">${durationText}</td>
+                    <td>
+                        <div>
+                            <span class="proc-name">${escapeHtml(flow.process_name || 'unknown')}</span>
+                            <span class="pid-tag">[PID: ${flow.pid}]</span>
+                        </div>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        async function updateDashboard() {
+            try {
+                const statsResponse = await fetch('/api/stats');
+                const statsData = await statsResponse.json();
+                globalStats = statsData;
+
+                document.getElementById('iface-name').textContent = statsData.interface || '--';
+                document.getElementById('uptime').textContent = formatUptime(statsData.uptime_sec);
+
+                const stats = statsData.stats;
+                document.getElementById('val-ingress').textContent = formatBytes(stats.total_bytes_ingress || 0);
+                document.getElementById('val-egress').textContent = formatBytes(stats.total_bytes_egress || 0);
+                document.getElementById('val-packets').textContent = (stats.total_pkts_ingress + stats.total_pkts_egress).toLocaleString();
+                document.getElementById('val-flows').textContent = stats.total_flows.toLocaleString();
+
+                if (stats.history && stats.history.length > 0) {
+                    const labels = stats.history.map(pt => {
+                        const date = new Date(pt.timestamp);
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    });
+                    const ingressData = stats.history.map(pt => pt.bytes_in);
+                    const egressData = stats.history.map(pt => pt.bytes_out);
+
+                    bandwidthChartInstance.data.labels = labels;
+                    bandwidthChartInstance.data.datasets[0].data = ingressData;
+                    bandwidthChartInstance.data.datasets[1].data = egressData;
+                    bandwidthChartInstance.update();
+                }
+
+                const tcps = stats.by_protocol['TCP'] || 0;
+                const udps = stats.by_protocol['UDP'] || 0;
+                const icmps = stats.by_protocol['ICMP'] || 0;
+                let totalKnown = tcps + udps + icmps;
+                let other = stats.total_flows - totalKnown;
+                if (other < 0) other = 0;
+
+                protocolChartInstance.data.datasets[0].data = [tcps, udps, icmps, other];
+                protocolChartInstance.update();
+
+                const procBody = document.getElementById('proc-table-body');
+                procBody.innerHTML = '';
+                if (stats.top_processes && stats.top_processes.length > 0) {
+                    document.getElementById('proc-empty').style.display = 'none';
+                    document.getElementById('proc-table').style.display = 'table';
+                    stats.top_processes.forEach(proc => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>
+                                <span class="proc-name">${escapeHtml(proc.name || 'unknown')}</span>
+                                <span class="pid-tag">[PID: ${proc.pid}]</span>
+                            </td>
+                            <td class="bytes-col">${formatBytes(proc.bytes_ingress)}</td>
+                            <td class="bytes-col">${formatBytes(proc.bytes_egress)}</td>
+                            <td class="bytes-col" style="font-weight: 500;">${proc.flow_count}</td>
+                        `;
+                        procBody.appendChild(tr);
+                    });
+                } else {
+                    document.getElementById('proc-table').style.display = 'none';
+                    document.getElementById('proc-empty').style.display = 'flex';
+                }
+
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+
+            try {
+                const flowsResponse = await fetch('/api/flows');
+                const flowsData = await flowsResponse.json();
+                globalFlows = flowsData.flows || [];
+
+                const filterText = document.getElementById('flow-search').value.toLowerCase().trim();
+                const flowBody = document.getElementById('flow-table-body');
+                flowBody.innerHTML = '';
+
+                let visibleFlows = 0;
+
+                globalFlows.forEach(flow => {
+                    const matchesFilter = !filterText ||
+                        flow.src_ip.toLowerCase().includes(filterText) ||
+                        flow.dst_ip.toLowerCase().includes(filterText) ||
+                        flow.src_port.toString().includes(filterText) ||
+                        flow.dst_port.toString().includes(filterText) ||
+                        flow.protocol.toLowerCase().includes(filterText) ||
+                        (flow.l7_protocol && flow.l7_protocol.toLowerCase().includes(filterText)) ||
+                        (flow.process_name && flow.process_name.toLowerCase().includes(filterText)) ||
+                        flow.pid.toString().includes(filterText);
+
+                    if (!matchesFilter) return;
+
+                    visibleFlows++;
+
+                    const tr = document.createElement('tr');
+
+                    let protoClass = 'other';
+                    if (flow.protocol === 'TCP') protoClass = 'tcp';
+                    else if (flow.protocol === 'UDP') protoClass = 'udp';
+                    else if (flow.protocol === 'ICMP') protoClass = 'icmp';
+
+                    let attribution = `<span style="color: #94a3b8; font-size: 0.75rem;">--</span>`;
+                    if (flow.pid > 0) {
+                        attribution = `
+                            <div>
+                                <span class="proc-name">${escapeHtml(flow.process_name || 'unknown')}</span>
+                                <span class="pid-tag">[PID: ${flow.pid}]</span>
+                            </div>
+                        `;
+                        if (flow.container_id) {
+                            attribution += `<div class="container-id"><i class="fa-solid fa-cube"></i> ${flow.container_id.substring(0, 12)}</div>`;
+                        }
+                    }
+
+                    let l7Badge = '';
+                    if (flow.l7_protocol) {
+                        const l7Class = `l7-${flow.l7_protocol.toLowerCase()}`;
+                        l7Badge = ` <span class="badge ${l7Class}">${flow.l7_protocol}</span>`;
+                    }
+
+                    let latencyText = `<span style="color: #94a3b8;">—</span>`;
+                    if (flow.latency_ms && flow.latency_ms > 0) {
+                        latencyText = `<span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 500; font-family: 'JetBrains Mono'; border: 1px solid rgba(14, 165, 233, 0.2);">${flow.latency_ms.toFixed(2)} ms</span>`;
+                    }
+
+                    let durationText = `<span style="color: #94a3b8;">—</span>`;
+                    if (flow.duration_ms && flow.duration_ms > 0) {
+                        let sec = flow.duration_ms / 1000;
+                        if (sec < 1) {
+                            durationText = `<span style="font-family: 'JetBrains Mono'; color: #64748b;">${flow.duration_ms.toFixed(0)} ms</span>`;
+                        } else {
+                            durationText = `<span style="font-family: 'JetBrains Mono'; color: #64748b; font-weight: 500;">${sec.toFixed(1)} s</span>`;
+                        }
+                    }
+
+                    tr.innerHTML = `
+                        <td>
+                            <span class="badge ${protoClass}">${flow.protocol}</span>${l7Badge}
+                        </td>
+                        <td>
+                            <div class="font-mono">${flow.src_ip}:${flow.src_port} ──►</div>
+                            <div class="font-mono">${flow.dst_ip}:${flow.dst_port}</div>
+                        </td>
+                        <td class="bytes-col">
+                            <div>${formatBytes(flow.bytes_ingress)} /</div>
+                            <div>${formatBytes(flow.bytes_egress)}</div>
+                        </td>
+                        <td class="header-right" style="padding-right: 2rem;">${latencyText}</td>
+                        <td class="header-right" style="padding-right: 2rem;">${durationText}</td>
+                        <td>${attribution}</td>
+                    `;
+                    flowBody.appendChild(tr);
+                });
+
+                if (visibleFlows === 0) {
+                    document.getElementById('flow-table').style.display = 'none';
+                    document.getElementById('flow-empty').style.display = 'flex';
+                } else {
+                    document.getElementById('flow-table').style.display = 'table';
+                    document.getElementById('flow-empty').style.display = 'none';
+                }
+
+                if (activeTab === 'processes') {
+                    triggerProcessConsoleRender();
+                    renderInspectionFlows();
+                }
+
+            } catch (err) {
+                console.error("Error fetching flows:", err);
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            updateDashboard();
+            setInterval(updateDashboard, 5000);
+            document.getElementById('flow-search').addEventListener('input', updateDashboard);
+        });
+    </script>
+</body>
+
+</html>
