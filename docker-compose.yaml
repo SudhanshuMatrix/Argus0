@@ -1,0 +1,48 @@
+# ==============================================================================
+# Docker Compose for Argus (eBPF Network Observability Agent)
+# ==============================================================================
+#
+# Since Argus is an eBPF-based agent that interacts directly with the Linux 
+# kernel and network queues, running it inside a container requires:
+#   1. network_mode: host -> so it attaches to your actual physical host interfaces.
+#   2. pid: host          -> so it maps connection PIDs to host processes.
+#   3. privileged: true   -> so it has CAP_BPF & CAP_NET_ADMIN rights to load BPF.
+#   4. Volume mounts      -> access to /sys (BPF filesystem) and /proc (process info).
+
+version: "3.8"
+
+services:
+  argus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: argus
+    privileged: true
+    network_mode: host
+    pid: host
+    
+    # Mount required kernel/host filesystems
+    volumes:
+      # /sys is required to load and manage eBPF program hooks and maps
+      - /sys:/sys:ro
+      # /proc is required to enrich flow connections with host process PIDs & names
+      - /proc:/proc:ro
+      # Mount host configuration directory to allow live-updating without rebuilds
+      - ./configs:/app/configs:ro
+      # Mount your .env file to load active environment variables
+      - ./.env:/app/.env:ro
+
+    # Environment variables can be configured here or loaded from your .env file
+    # We use default values but they will be overridden by the .env mount above
+    environment:
+      - PORT=9090
+      - ARGUS_INTERFACE=enp2s0   # <-- Change this to your active interface (e.g. eth0, wlan0, lo)
+      - ARGUS_LOG_LEVEL=info
+      - ARGUS_LOG_FORMAT=text
+
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

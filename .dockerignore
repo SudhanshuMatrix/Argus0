@@ -1,0 +1,28 @@
+# Ignore local builds and temporary directories
+bin/
+out/
+dist/
+tmp/
+.idea/
+.vscode/
+
+# Ignore Git configurations and local logs
+.git/
+.gitignore
+.gitattributes
+*.log
+
+# Ignore large media/assets not required for builds
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
+# Ignore local dotenv secrets/overrides
+.env
+.env.local
+
+# Ignore OS-generated files
+.DS_Store
+Thumbs.db
