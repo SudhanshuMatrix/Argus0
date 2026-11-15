@@ -5,7 +5,7 @@ GOOS ?= linux
 GOARCH ?= $(shell $(GO) env GOARCH)
 CLANG ?= clang
 BPF_EXTRA_CFLAGS ?=
-LIBBPF_CFLAGS ?= $(shell pkg-config --cflags libbpf 2>/dev/null)
+LIBBPF_CFLAGS ?= -I/usr/include $(shell pkg-config --cflags libbpf 2>/dev/null)
 OUTPUT_DIR ?= ./bin
 BINARY = $(OUTPUT_DIR)/argus
 
