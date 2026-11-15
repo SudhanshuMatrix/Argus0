@@ -153,7 +153,17 @@ Send a plain HTTP request to a server you control across the monitored interface
 
 ## Benchmarks
 
-In 70 trials across 35 baseline/enabled pairs on an ARM64 Linux guest under QEMU software emulation, enabling Argus was associated with median TCP receiver throughput reductions of 0.16% to 5.93%. The baseline and enabled ranges overlapped for all four TCP workloads. Median per-trial HTTP p99 was 55.77 ms detached and 56.85 ms attached. See the [full validation report](benchmarks/results/2026-11-15-637ddfa/report.md) and [reproduction instructions](benchmarks/README.md).
+Argus completed 70 eight-second trials across 35 baseline/enabled pairs on a veth pair inside a software-emulated ARM64 Linux guest.
+
+| Workload | Observed result |
+|---|---|
+| TCP throughput | Median receiver throughput was 0.16% to 5.93% lower with Argus enabled. Baseline and enabled ranges overlapped in all four workloads. |
+| UDP at 5 and 20 Mbit/s | The receiver reported zero datagram loss in both conditions. |
+| HTTP latency | Median per-trial p99 was 55.77 ms detached and 56.85 ms attached. |
+| Flow-map capacity | The receiver got all 100,100 datagrams sent on distinct tuples. Argus recorded 100,000 observations and 100 map update failures. |
+| Ten-minute soak | The receiver reported zero datagram loss, and Argus reported zero map update failures. |
+
+These results describe the emulated test environment. See the [full report and raw evidence](benchmarks/results/2026-11-15-637ddfa/report.md) and [reproduction instructions](benchmarks/README.md).
 
 ---
 
