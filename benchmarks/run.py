@@ -36,9 +36,16 @@ def nscmd(namespace, *args):
 
 
 @contextlib.contextmanager
-def process(args, logfile, graceful=False):
+def process(args, logfile, require_success=False, isolated_agent=False):
     with logfile.open("w") as log:
-        child = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        env = None
+        cwd = None
+        if isolated_agent:
+            env = {key: value for key, value in os.environ.items()
+                   if not key.startswith("ARGUS_") and key not in ("INTERFACE", "PORT")}
+            cwd = logfile.parent
+        child = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT,
+                                 start_new_session=True, env=env, cwd=cwd)
         try:
             yield child
         finally:
@@ -51,8 +58,8 @@ def process(args, logfile, graceful=False):
                     forced = True
                     os.killpg(child.pid, signal.SIGKILL)
                     child.wait(timeout=5)
-            if graceful and (forced or child.returncode != 0):
-                raise RuntimeError(f"Argus failed to exit cleanly ({child.returncode}); see {logfile}")
+            if require_success and (forced or child.returncode != 0):
+                raise RuntimeError(f"{args[0]} failed to exit cleanly ({child.returncode}); see {logfile}")
 
 
 @contextlib.contextmanager
@@ -149,7 +156,7 @@ def trial(args, left, right, workload, condition, raw, config):
         with contextlib.ExitStack() as stack:
             agent = None
             if command:
-                agent = stack.enter_context(process(command, raw / "agent.log", graceful=True))
+                agent = stack.enter_context(process(command, raw / "agent.log", require_success=True, isolated_agent=True))
                 wait_for(agent, lambda: curl(left, "/healthz") == "ok", "Argus")
             before = proc_sample(agent) if agent else None
             cpu_before = cpu_sample()
