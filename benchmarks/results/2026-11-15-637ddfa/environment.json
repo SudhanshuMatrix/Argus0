@@ -1,0 +1,85 @@
+{
+  "platform": "Linux-6.12.117-0-virt-aarch64-with",
+  "environment": "QEMU 8.2.6 TCG aarch64 local emulator, 2 Cortex-A72 vCPU, 1 GiB",
+  "cpu_count": 2,
+  "memory": "MemTotal:         991828 kB",
+  "cpu_ticks_per_second": 100,
+  "tools": {
+    "ip": "ip utility, iproute2-6.15.0",
+    "ethtool": "ethtool version 6.14.1",
+    "iperf3": "iperf 3.19.1 (cJSON 1.7.15)",
+    "curl": "curl 8.14.1 (aarch64-alpine-linux-musl) libcurl/8.14.1 OpenSSL/3.5.9 zlib/1.4 brotli/1.1.1 zstd/1.5.7 c-ares/1.34.9 libidn2/2.3.7 libpsl/0.21.5 nghttp2/1.69.0",
+    "python": "3.12.16"
+  },
+  "source_revision": "637ddfa10a5bcf04248e940466463eb34e83b629",
+  "argus_sha256": "1af01322e672849eef529e7dc2e80687574a5be0a23f422352a50067f87e974c",
+  "configuration": {
+    "argus": "/mnt/argus",
+    "output": "/mnt/primary",
+    "revision": "637ddfa10a5bcf04248e940466463eb34e83b629",
+    "environment": "QEMU 8.2.6 TCG aarch64 local emulator, 2 Cortex-A72 vCPU, 1 GiB",
+    "duration": 8,
+    "warmup": 2,
+    "repetitions": 5,
+    "collect_interval": 2,
+    "workloads": [
+      "tcp",
+      "udp",
+      "http"
+    ],
+    "tcp_streams": [
+      1,
+      4
+    ],
+    "udp_rates": [
+      "5M",
+      "20M"
+    ],
+    "udp_length": 1200,
+    "http_parallel": 2
+  },
+  "topology": "client namespace 198.18.0.1/30 <-> veth <-> server namespace 198.18.0.2/30",
+  "primary_harness_revision": "9987d74b2868ce6ebeff1a3ccccb984bbcbe7fda",
+  "source_tree": {
+    "tracked_application_changes": false,
+    "untracked_benchmark_files_at_build": true,
+    "go_vcs_modified": true,
+    "incoming_revision": "eeed445f5881fe45bc05718314eb4205af3d590e"
+  },
+  "build": {
+    "go": "1.27.2",
+    "GOOS": "linux",
+    "GOARCH": "arm64",
+    "CGO_ENABLED": 0,
+    "ldflags": "-s -w -X main.version=637ddfa",
+    "bpf2go": "v0.14.0",
+    "bpf_compiler": "Zig 0.15.2 Clang driver",
+    "libbpf_headers": "v1.5.0"
+  },
+  "host": {
+    "model": "MacBook Air Mac14,2",
+    "os": "macOS 15.7.7",
+    "kernel": "Darwin 24.6.0",
+    "arch": "arm64",
+    "chip": "Apple M2",
+    "logical_cpus": 8,
+    "ram_bytes": 17179869184,
+    "available_disk_before_kib": 46268752,
+    "unprivileged": true,
+    "vz_supported": false,
+    "tools_at_start": {
+      "go": "go1.27.2 darwin/arm64",
+      "clang": "Apple clang 17.0.0",
+      "make": "GNU Make 3.81",
+      "python": "3.9.6"
+    },
+    "initial_vm_stat": {
+      "page_bytes": 16384,
+      "free_pages": 3753,
+      "active_pages": 309905,
+      "inactive_pages": 308384,
+      "speculative_pages": 845,
+      "wired_pages": 129131
+    }
+  }
+}

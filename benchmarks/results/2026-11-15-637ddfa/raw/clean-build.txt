@@ -1,0 +1,14 @@
+rm -f "<temporary-prefix>/clean-build/argus"
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+		-ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" \
+		-o "<temporary-prefix>/clean-build/argus" ./cmd/network-observer
+argus: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, Go BuildID=NbhtPD91nxapn05t4kcD/6D5WaeIQcRQrS-wcwoTB/tGwljSBQIms24CSQZ_Dw/oRCw8Mm7v-yTHXEXjWm_, BuildID[sha1]=97c1f41ece1d5abd9afe2ec2bb5e4c1a90506216, stripped
+go run github.com/cilium/ebpf/cmd/bpf2go \
+		-cc "<temporary-prefix>/tools/clang-zig" -no-strip -target bpfel,bpfeb \
+		-cflags "-O2 -g -Wall -Wextra -Werror -nostdinc -fdebug-compilation-dir=. -Ibpf/include -I<temporary-prefix>/libbpf -fdebug-prefix-map=<temporary-prefix>/libbpf=/usr/include" \
+		-go-package bpf -output-dir internal/bpf NetworkStats ./bpf/programs/network_stats.c
+Compiled <temporary-prefix>/clean-source/internal/bpf/networkstats_bpfel.o
+Wrote <temporary-prefix>/clean-source/internal/bpf/networkstats_bpfel.go
+Compiled <temporary-prefix>/clean-source/internal/bpf/networkstats_bpfeb.o
+Wrote <temporary-prefix>/clean-source/internal/bpf/networkstats_bpfeb.go
+Regenerated Go bindings and BPF object files matched the committed files byte-for-byte.

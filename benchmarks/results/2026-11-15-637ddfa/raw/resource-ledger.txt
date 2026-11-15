@@ -1,0 +1,7 @@
+Host resource ledger
+- Existing host tools reused: Git and credential helper, Go, Python, Apple Command Line Tools, make, curl, tar, cpio and codesign.
+- New task resources: Argus0 checkout and validation branch; temporary task prefix, archives, caches, Zig, libbpf headers, xPack QEMU, Alpine kernel and initramfs, agent/test binaries and verification logs.
+- Swift feature probe and ad hoc entitlement were scoped to a temporary binary. Apple Virtualization.framework was unavailable.
+- The QEMU guest had two emulated CPUs, RAM-backed root, a task-only 9p directory and no external NIC. The guest had no persistent kernel settings or block disks.
+- Guest resources: task-created veth pairs and network namespaces, Argus TCX links and maps, traffic endpoints, and a temporary runtime-statistics descriptor. Per-run deletion and detach evidence is included.
+- The host had no package installation, sysctl edits, privileged commands, container/image creation, network interface changes, or external test infrastructure.

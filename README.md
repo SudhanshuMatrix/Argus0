@@ -11,107 +11,19 @@
   <img src="https://img.shields.io/badge/License-Apache%202.0-green?logo=apache" alt="License Badge">
 </p>
 
-Argus is a high-performance, kernel-level network observability and **L7 Deep Packet Inspection (DPI)** agent for Kubernetes and Linux nodes. It uses **eBPF TC (Traffic Control) classification programs** to capture network flows at line rate with zero packet sampling, executes lightweight signature analysis inside the kernel to snoop L7 protocols (like TLS, HTTP, DNS, and SSH), enriches them with process and container metadata, and exposes metrics via Prometheus and a real-time web dashboard.
+Argus monitors directional IPv4 TCP and UDP flows on a Linux network interface. It attaches eBPF programs to TCX ingress and egress, records per-flow counters, and exposes snapshots through Prometheus and a web dashboard.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              Linux Kernel                              │
-│                                                                        │
-│  Network Interface (enp2s0 / eth0)                                     │
-│       │                                                                │
-│       ▼                                                                │
-│  TC Ingress Hook ──► parse_ipv4() ──► detect_l7() (DPI Signature) ──►  │
-│       │                                    │                           │
-│  TC Egress Hook  ◄─────────────────── update_flow()                    │
-│                                            │                           │
-│                              flow_map (BPF_MAP_TYPE_HASH)              │
-└────────────────────────────────────────────┼───────────────────────────┘
-                                             │  BPF map read (syscall)
-┌────────────────────────────────────────────▼───────────────────────────┐
-│                            Argus Go Agent                              │
-│                                                                        │
-│  FlowCollector ──► ProcessEnricher ──► Exporters                       │
-│  (every 5s)        (/proc/pid/comm)   ├── Prometheus (/metrics)        │
-│                    (/proc/pid/cgroup) └── Web Dashboard (:9090)        │
-└────────────────────────────────────────────────────────────────────────┘
-```
+The classifier recognizes common HTTP, TLS handshake and SSH payload prefixes. DNS classification uses port 53 and checks the structure of the DNS header. Payload matching is limited to bytes available in a single socket buffer. It provides neither stream reassembly nor decryption. See the [kernel classifier](bpf/programs/network_stats.c) for the supported patterns.
 
----
+The flow map holds up to 100,000 directional tuples for the lifetime of the agent. Idle entries remain in the map and the API snapshot. The Prometheus active-flow gauge counts tuples whose counters advanced since the last successful collection. Once the map fills, existing flows continue to update and observation failures for new tuples increment `network_flow_update_failures_total`.
 
-## Core Features
-
-- **Zero-Copy Kernel Capture** : Attaches directly to the kernel's `clsact` qdisc Traffic Control boundary to capture packets before they hit socket buffers.
-- **L7 Deep Packet Inspection (DPI)** : Runs a lockless C parser inside the eBPF VM to inspect payloads for structural L7 protocol signatures:
-  - **`TLS / HTTPS`**: Identifies TLS Handshake records (`0x16 0x03` signatures).
-  - **`HTTP`**: Detects unencrypted methods (`GET`, `POST`, `PUT`, `DELETE` signatures).
-  - **`SSH`**: Detects standard protocol identification (`SSH-` signatures).
-  - **`DNS`**: Dissects domain query packets on port 53.
-- **Process & Container Attribution** : Dynamically parses VFS `/proc/<pid>/comm` and container cgroup paths to map kernel-level packets to specific host PIDs, process names, and Docker/Kubernetes container IDs.
-- **Visual Diagnostics Dashboard** : A real-time web console displaying high-throughput talkers, interactive connection maps, and L7 badge overlays.
-- **Enterprise Prometheus Exporter** : Custom Prometheus Collector exposing `network_bytes_total`, `network_packets_total`, and `network_active_connections` with dynamic `{protocol}` and `{l7_protocol}` labels.
-- **CO-RE (Compile Once – Run Everywhere)** : Relies on raw kernel BTF metadata relocation, enabling a single pre-compiled `.o` binary to run across different Linux kernels (5.15+) without recompilation.
-
----
-
-## eBPF Kernel L7 Signature Engine
-
-Below is the optimized C signature detection routine that runs directly inside the kernel, bounds-checked and approved by the BPF verifier:
-
-```c
-/* inspects packet payload for protocol-specific byte patterns */
-static __always_inline __u8 detect_l7(struct __sk_buff *skb, __u8 protocol,
-                                     __u32 ip_hdr_len, __u16 src_port, __u16 dst_port)
-{
-    __u16 sport = bpf_ntohs(src_port);
-    __u16 dport = bpf_ntohs(dst_port);
-    __u32 payload_offset = 0;
-
-    if (protocol == PROTO_UDP) {
-        payload_offset = sizeof(struct ethhdr) + ip_hdr_len + 8;
-    } else if (protocol == PROTO_TCP) {
-        struct tcphdr tcph;
-        __u32 tcp_offset = sizeof(struct ethhdr) + ip_hdr_len;
-        if (bpf_skb_load_bytes(skb, tcp_offset, &tcph, sizeof(tcph)) < 0) return L7_UNKNOWN;
-        __u32 tcp_hdr_len = tcph.doff * 4;
-        if (tcp_hdr_len < 20) return L7_UNKNOWN;
-        payload_offset = sizeof(struct ethhdr) + ip_hdr_len + tcp_hdr_len;
-    } else {
-        return L7_UNKNOWN;
-    }
-
-    __u8 buf[4] = {0};
-    if (bpf_skb_load_bytes(skb, payload_offset, buf, sizeof(buf)) < 0) {
-        /* Empty payloads (like TCP ACKs) fall back to port guessers */
-        if (sport == 53 || dport == 53) return L7_DNS;
-        return L7_UNKNOWN;
-    }
-
-    /* 1. HTTP: Look for standard requests */
-    if ((buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' && buf[3] == ' ') ||
-        (buf[0] == 'P' && buf[1] == 'O' && buf[2] == 'S' && buf[3] == 'T') ||
-        (buf[0] == 'H' && buf[1] == 'T' && buf[2] == 'T' && buf[3] == 'P')) {
-        return L7_HTTP;
-    }
-
-    /* 2. TLS: SSLv3/TLSv1 Handshake (0x16 0x03) */
-    if (buf[0] == 0x16 && buf[1] == 0x03 && (buf[2] == 0x01 || buf[2] == 0x02 || buf[2] == 0x03)) {
-        return L7_TLS;
-    }
-
-    /* 3. SSH: Protocol magic greeting */
-    if (buf[0] == 'S' && buf[1] == 'S' && buf[2] == 'H' && buf[3] == '-') {
-        return L7_SSH;
-    }
-
-    return L7_UNKNOWN;
-}
-```
+The API leaves process ownership unset because TCX can run in a different task context from the socket owner. Flow duration is the elapsed time between the first and last observed packets in a directional tuple. It describes the observation span and can include idle periods or tuple reuse.
 
 ---
 
 ## Visual Diagnostics Dashboard
 
-Argus features an integrated, real-time web observer console using light-mode glassmorphism styling to visualize global throughput charts, active process hierarchies, and L7 badge distributions:
+The dashboard displays flow snapshots, byte counts and L7 protocol labels. These screenshots illustrate an earlier interface that included process and latency fields.
 
 ### Overview Console
 <p align="center">
@@ -127,20 +39,24 @@ Argus features an integrated, real-time web observer console using light-mode gl
 
 ## Prometheus Telemetry Schema
 
-Argus generates highly granular, multi-label metrics allowing deep queries of network patterns:
+Counters account for changes between successful snapshots. When classification changes, subsequent increments use the new label and prior increments remain under the original label.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `network_bytes_total` | Counter | `interface`, `protocol`, `l7_protocol`, `direction` | Monotonically increasing counter of bytes |
 | `network_packets_total` | Counter | `interface`, `protocol`, `l7_protocol`, `direction` | Monotonically increasing counter of packets |
-| `network_active_connections` | Gauge | `interface`, `protocol`, `l7_protocol` | Gauges unique connections in last interval |
+| `network_active_connections` | Gauge | `interface`, `protocol`, `l7_protocol` | Directional tuples with newly observed traffic since the previous collection |
+| `network_flow_map_entries` | Gauge | `interface` | Entries in the most recent successful collection |
+| `network_flow_update_failures_total` | Counter | `interface` | Packets whose flow update could not be recorded |
 
-### Powerful PromQL Examples:
+Bytes count `skb->len` at the hook. Network offloads and hook placement can change the relationship between socket buffers and packets on a network link.
+
+### PromQL examples
 ```promql
 # Graph Ingress TLS traffic throughput (bytes/sec)
 sum(rate(network_bytes_total{direction="ingress", l7_protocol="TLS"}[5m]))
 
-# Contrast secure (HTTPS/TLS) vs plain text (HTTP) traffic counts
+# Group observed TCP byte rates by application protocol
 sum by (l7_protocol) (rate(network_bytes_total{protocol="TCP"}[5m]))
 
 # Monitor active DNS connection gauges
@@ -152,21 +68,15 @@ network_active_connections{l7_protocol="DNS"}
 ## Quick Start & Installation
 
 ### Prerequisites
-- Clang $\ge$ 12 & LLVM
-- Linux Kernel headers (`apt install linux-headers-$(uname -r)`)
-- libbpf developer headers (`apt install libbpf-dev`)
-- Go $\ge$ 1.21
+
+- Linux with BPF and TCX support and permission to load BPF objects and attach TCX programs. TCX was introduced in Linux 6.6.
+- Go 1.21 or later. The module suggests Go 1.22.5.
+- For BPF source changes, install Clang with the BPF backend and libbpf headers. `make generate` uses the module's pinned bpf2go version.
 
 ### 1. Build and Run
 ```bash
-# Clone the repository
-git clone https://github.com/sudhanshu-singh/argus.git && cd argus
-
-# Generate vmlinux.h from BTF
-make vmlinux
-
-# Compile C kernel-space programs and generate Go bpf2go bindings
-make generate
+git clone https://github.com/SudhanshuMatrix/Argus0.git
+cd Argus0
 
 # Compile the Go agent binary
 make build
@@ -176,9 +86,7 @@ sudo ./bin/argus --interface enp2s0
 ```
 
 ### 2. Build and Run with Docker (Recommended)
-If you prefer not to install the eBPF build toolchain (`clang`, `llvm`, `libbpf-dev`, `go`) on your host, you can run Argus fully containerized using **Docker** or **Docker Compose**.
-
-Because Argus attaches directly to the host's physical network queue and maps connection PIDs to host processes, it requires privileged host access (`--privileged`, `--network host`, and `--pid host`).
+Docker and Docker Compose can build the agent using the checked-in BPF objects. Host-interface monitoring requires a Linux container host with TCX support and permission to attach to the named interface.
 
 #### Option A: Docker Compose (Easiest)
 Make sure you have created your `.env` file from `.env.example` and set your active interface (`ARGUS_INTERFACE=eth0` or `ARGUS_INTERFACE=enp2s0`):
@@ -237,12 +145,15 @@ sudo docker run -d \
 *   **Web Diagnostics UI:** `http://localhost:9090`
 *   **Prometheus Metrics Endpoint:** `http://localhost:9090/metrics`
 
-### 4. Verify L7 Detection (DPI Test)
-To watch the eBPF kernel program dynamically capture unencrypted HTTP payloads in real-time, trigger a plain HTTP request in a separate terminal:
-```bash
-curl http://neverssl.com
-```
-Check your dashboard or stdout JSON logs you will instantly see a flow attributed to `curl` with protocol `TCP` and L7 Protocol marked as **`HTTP`**!
+### 4. Verify L7 Detection
+
+Send a plain HTTP request to a server you control across the monitored interface. After a collection interval, look for the directional tuple and its `HTTP` label in `/api/flows`. Enable trace logging if you need a JSON line for each sampled flow.
+
+---
+
+## Benchmarks
+
+In 70 trials across 35 baseline/enabled pairs on an ARM64 Linux guest under QEMU software emulation, enabling Argus was associated with median TCP receiver throughput reductions of 0.16% to 5.93%. The baseline and enabled ranges overlapped for all four TCP workloads. Median per-trial HTTP p99 was 55.77 ms detached and 56.85 ms attached. See the [full validation report](benchmarks/results/2026-11-15-637ddfa/report.md) and [reproduction instructions](benchmarks/README.md).
 
 ---
 
@@ -266,7 +177,7 @@ argus/
 │       └── daemonset.yaml    # Kubernetes DaemonSet deployment spec
 ├── internal/
 │   ├── bpf/
-│   │   └── loader.go         # TC link attachments, qdisc and BPF map loader
+│   │   └── loader.go         # TCX links and BPF map loader
 │   ├── collector/
 │   │   └── flow_collector.go # Map iterator, L7 name mapper, JSON formatter
 │   ├── config/
@@ -294,7 +205,6 @@ Because eBPF interacts directly with host-level sockets, network interfaces, and
 *   **`securityContext.privileged: true`** (or `CAP_BPF` + `CAP_NET_ADMIN` + `CAP_SYS_ADMIN` capabilities) to load Traffic Control links and access kernel rings.
 *   **Host Network (`hostNetwork: true`):** Runs the pod in the node's network namespace to attach hooks directly to host physical interfaces (like `eth0` or `bond0`).
 *   **Host `/sys/fs/bpf` Volume:** Mounts the host's BPF virtual filesystem so maps can be inspected or persisted.
-*   **Host `/proc` Volume:** Mounts the host's virtual `/proc` filesystem so the agent can correctly correlate connection flows with PIDs and container names running outside the pod's container.
 
 ### 2. Deploying Argus
 Deploy the pre-configured DaemonSet and RBAC authorization resources to your cluster:
@@ -319,8 +229,7 @@ kubectl logs -n monitoring -l app=argus --tail=100 -f
 
 ## eBPF Architecture Notes
 
-- **TC Hook vs XDP:** While XDP runs faster at the driver level, Traffic Control (TC) has access to the full socket buffer struct (`sk_buff`), allowing bidirectional traffic capture, native VLAN/port support, and deep packet access to socket context—making it perfect for end-to-end container observability.
-- **BPF Verifier Compliance:** Fully compliant with kernel safety limits. BPF stack usage is optimized, all loops are bounded, helper function calls are inlined, and any payload memory read is bounds-checked via safe pointer arithmetic and verified before execution.
+The current parser handles unfragmented IPv4 TCP and UDP over Ethernet. In-packet VLAN headers, IPv6 and fragmented packets are outside the accounting scope. The running agent holds TCX links and BPF maps through file descriptors. Closing the descriptors releases its references.
 
 ---
 

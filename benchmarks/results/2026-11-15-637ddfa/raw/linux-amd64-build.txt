@@ -1,0 +1,4 @@
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+		-ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" \
+		-o "<temporary-prefix>/linux-amd64-build/argus" ./cmd/network-observer
+argus: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, Go BuildID=R-dDMQLt6dKM2XWllUef/e4hjvjAhWLt6z0WUVcHC/K1UKIAI8MjgxF-bth0Qd/BmJ934K-GnYysF8X192B, BuildID[sha1]=c71abbb2eaf97b8e27dc8264ba31bf0e44acdb5d, stripped

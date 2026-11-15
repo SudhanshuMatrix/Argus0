@@ -1,0 +1,1 @@
+198.18.0.0/30 dev argus0 proto kernel scope link src 198.18.0.2

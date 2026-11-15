@@ -1,0 +1,34 @@
+=== RUN   TestKernelProtocolDetection
+=== RUN   TestKernelProtocolDetection/HTTP
+=== RUN   TestKernelProtocolDetection/HTTP_prefix_only
+=== RUN   TestKernelProtocolDetection/TLS
+=== RUN   TestKernelProtocolDetection/TLS_invalid_size
+=== RUN   TestKernelProtocolDetection/SSH
+=== RUN   TestKernelProtocolDetection/UDP_DNS
+=== RUN   TestKernelProtocolDetection/TCP_DNS
+=== RUN   TestKernelProtocolDetection/misleading_DNS_port
+=== RUN   TestKernelProtocolDetection/empty_DNS_TCP_packet
+=== RUN   TestKernelProtocolDetection/misleading_HTTPS_port
+=== RUN   TestKernelProtocolDetection/misleading_SSH_port
+=== RUN   TestKernelProtocolDetection/HTTP_bytes_over_UDP
+=== RUN   TestKernelProtocolDetection/padding_past_UDP_header_is_ignored
+--- PASS: TestKernelProtocolDetection (0.45s)
+    --- PASS: TestKernelProtocolDetection/HTTP (0.01s)
+    --- PASS: TestKernelProtocolDetection/HTTP_prefix_only (0.00s)
+    --- PASS: TestKernelProtocolDetection/TLS (0.00s)
+    --- PASS: TestKernelProtocolDetection/TLS_invalid_size (0.00s)
+    --- PASS: TestKernelProtocolDetection/SSH (0.00s)
+    --- PASS: TestKernelProtocolDetection/UDP_DNS (0.00s)
+    --- PASS: TestKernelProtocolDetection/TCP_DNS (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_DNS_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/empty_DNS_TCP_packet (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_HTTPS_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_SSH_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/HTTP_bytes_over_UDP (0.00s)
+    --- PASS: TestKernelProtocolDetection/padding_past_UDP_header_is_ignored (0.00s)
+=== RUN   TestKernelFlowMapCapacity
+--- PASS: TestKernelFlowMapCapacity (0.04s)
+=== RUN   TestKernelTCXLifecycle
+time="2026-11-15T04:20:20Z" level=info msg="Attached ingress and egress TCX programs" interface=probe0
+--- PASS: TestKernelTCXLifecycle (0.08s)
+PASS

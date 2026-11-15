@@ -1,0 +1,3 @@
+=== RUN   TestBuildFlow
+--- PASS: TestBuildFlow (0.01s)
+PASS

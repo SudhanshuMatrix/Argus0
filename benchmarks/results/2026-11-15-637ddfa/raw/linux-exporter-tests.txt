@@ -1,0 +1,7 @@
+=== RUN   TestCumulativeSnapshotAccounting
+--- PASS: TestCumulativeSnapshotAccounting (0.04s)
+=== RUN   TestConcurrentExportAndScrape
+--- PASS: TestConcurrentExportAndScrape (0.09s)
+=== RUN   TestHTTPServerLifecycle
+--- PASS: TestHTTPServerLifecycle (0.09s)
+PASS

@@ -1,0 +1,5 @@
+Development checks excluded from the paired trials
+- Incoming checkout: native darwin/arm64 go test ./... failed. The x86 bindings were not selected on ARM64 and the unguarded netlink qdisc APIs were Linux-only.
+- Guest setup attempt: APK refused to install local packages into the RAM-backed Alpine root until the local archive installation mode was explicitly selected.
+- Initial Argus smoke build: the BPF object contained an unresolved memcmp reference. Explicit byte comparisons fixed the load; the following smoke run attached both hooks, served HTTP and exited after SIGTERM.
+- A host HTTP test initially hit the shutdown deadline when the test client did not drain response bodies. The test now drains each response and closes idle connections before cancellation.
