@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 	"github.com/sudhanshu-singh/argus/internal/bpf"
 	"github.com/sudhanshu-singh/argus/internal/collector"
 	"github.com/sudhanshu-singh/argus/internal/config"
-	"github.com/sudhanshu-singh/argus/internal/enricher"
 	"github.com/sudhanshu-singh/argus/internal/exporter"
 	"github.com/sudhanshu-singh/argus/internal/store"
 )
@@ -31,7 +31,7 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (err error) {
 	configPath := flag.String("config", "", "Path to config YAML (default: configs/default.yaml)")
 	iface := flag.String("interface", "", "Network interface to monitor (overrides config)")
 	flag.Parse()
@@ -58,26 +58,17 @@ func run() error {
 			"Run with sudo or grant CAP_BPF + CAP_NET_ADMIN.")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigCh
-		log.WithField("signal", sig).Info("Received shutdown signal")
-		cancel()
-	}()
 
 	bpfObjs, err := bpf.Load(cfg.Agent.Interface, log)
 	if err != nil {
 		return fmt.Errorf("loading eBPF programs onto %q: %w", cfg.Agent.Interface, err)
 	}
-	// Ensure programs are detached from the interface on any exit path.
 	defer func() {
-		log.Info("Cleaning up eBPF programs...")
-		bpfObjs.Close()
-		log.Info("eBPF programs detached successfully")
+		if closeErr := bpfObjs.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("releasing BPF resources: %w", closeErr))
+		}
 	}()
 
 	flowStore := store.NewFlowStore(60)
@@ -89,41 +80,17 @@ func run() error {
 
 	apiHandler := api.NewHandler(flowStore, cfg.Agent.Interface, log)
 
+	serverDone := make(chan error, 1)
 	go func() {
-		err := promExporter.ServeMetrics(ctx, cfg.Prometheus.ListenAddr, func(mux *http.ServeMux) {
+		serverDone <- promExporter.ServeMetrics(ctx, cfg.Prometheus.ListenAddr, func(mux *http.ServeMux) {
 			apiHandler.RegisterRoutes(mux)
 			apiHandler.RegisterDashboardRoute(mux)
 		})
-		if err != nil {
-			log.WithError(err).Error("HTTP server error")
-			cancel()
-		}
+		cancel()
 	}()
-
-	procEnricher := enricher.NewProcessEnricher(cfg.Agent.CacheTTL, log)
-
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				procEnricher.PurgeExpired()
-			}
-		}
-	}()
-
-	exporters := []exporter.Exporter{promExporter}
 
 	flowCollector := collector.NewCollector(
-		bpfObjs,
-		procEnricher,
-		exporters,
-		cfg.Agent.CollectInterval,
-		log,
-		flowStore,
+		bpfObjs, []exporter.Exporter{promExporter}, cfg.Agent.CollectInterval, log, flowStore,
 	)
 
 	log.WithFields(logrus.Fields{
@@ -132,8 +99,13 @@ func run() error {
 		"metrics_addr":     cfg.Prometheus.ListenAddr,
 	}).Info("Argus agent running")
 
-	if err := flowCollector.Run(ctx); err != nil && err != context.Canceled {
-		return fmt.Errorf("collector error: %w", err)
+	collectorErr := flowCollector.Run(ctx)
+	cancel()
+	if err := <-serverDone; err != nil {
+		return fmt.Errorf("HTTP server: %w", err)
+	}
+	if collectorErr != nil && !errors.Is(collectorErr, context.Canceled) {
+		return fmt.Errorf("collector: %w", collectorErr)
 	}
 
 	log.Info("Argus agent stopped gracefully")

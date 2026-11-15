@@ -5,18 +5,6 @@
 # --- STAGE 1: Builder ---
 FROM golang:1.22-bookworm AS builder
 
-# Install build dependencies: Clang, LLVM, libbpf-dev, and Make.
-# Clang/LLVM are required to compile the eBPF C programs into BPF bytecode.
-# libbpf-dev provides standard helper headers.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    clang \
-    llvm \
-    libbpf-dev \
-    make \
-    git \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
 # Set up working directory inside the build container
 WORKDIR /src
 
@@ -26,10 +14,6 @@ RUN go mod download
 
 # Copy the entire workspace code
 COPY . .
-
-# Pre-install the exact version of bpf2go matching our go.mod (v0.14.0)
-# to avoid fetching @latest which requires Go >= 1.24.
-RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
 
 # Run the build target from the Makefile.
 RUN make build

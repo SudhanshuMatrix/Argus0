@@ -16,11 +16,12 @@ type Flow struct {
 	L7Protocol   string    `json:"l7_protocol,omitempty"`
 	BytesIngress uint64    `json:"bytes_ingress"`
 	BytesEgress  uint64    `json:"bytes_egress"`
-	PktsIngress  uint32    `json:"pkts_ingress"`
-	PktsEgress   uint32    `json:"pkts_egress"`
+	PktsIngress  uint64    `json:"pkts_ingress"`
+	PktsEgress   uint64    `json:"pkts_egress"`
 	PID          uint32    `json:"pid"`
 	ProcessName  string    `json:"process_name"`
 	ContainerID  string    `json:"container_id,omitempty"`
+	FirstSeenNs  uint64    `json:"-"`
 	CollectedAt  time.Time `json:"collected_at"`
 	LatencyMs    float64   `json:"latency_ms,omitempty"`
 	DurationMs   float64   `json:"duration_ms,omitempty"`
@@ -145,8 +146,8 @@ func (s *FlowStore) ComputeStats() Stats {
 		stats.TotalFlows++
 		stats.TotalBytesIn += f.BytesIngress
 		stats.TotalBytesOut += f.BytesEgress
-		stats.TotalPktsIn += uint64(f.PktsIngress)
-		stats.TotalPktsOut += uint64(f.PktsEgress)
+		stats.TotalPktsIn += f.PktsIngress
+		stats.TotalPktsOut += f.PktsEgress
 		stats.ByProtocol[f.Protocol]++
 
 		// Aggregate per PID.

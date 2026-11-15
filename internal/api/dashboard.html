@@ -691,7 +691,6 @@
                                     <th>PROTO</th>
                                     <th>SOURCE ADDRESS ──► DESTINATION ADDRESS</th>
                                     <th class="bytes-col header-right">IN / OUT BYTES</th>
-                                    <th class="header-right" style="padding-right: 2rem;">LATENCY</th>
                                     <th class="header-right" style="padding-right: 2rem;">DURATION</th>
                                     <th>ATTRIBUTION</th>
                                 </tr>
@@ -776,7 +775,6 @@
                                 <th>PROTO</th>
                                 <th>SOURCE ADDRESS ──► DESTINATION ADDRESS</th>
                                 <th class="bytes-col header-right">IN / OUT BYTES</th>
-                                <th class="header-right" style="padding-right: 2rem;">LATENCY</th>
                                 <th class="header-right" style="padding-right: 2rem;">DURATION</th>
                                 <th>ATTRIBUTION</th>
                             </tr>
@@ -1070,7 +1068,7 @@
             const filteredFlows = globalFlows.filter(f => f.pid === inspectPidFilter);
 
             if (filteredFlows.length === 0) {
-                body.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No active streams found for inspected process</td></tr>`;
+                body.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No active streams found for inspected process</td></tr>`;
                 return;
             }
 
@@ -1085,11 +1083,6 @@
                 if (flow.l7_protocol) {
                     const l7Class = `l7-${flow.l7_protocol.toLowerCase()}`;
                     l7Badge = ` <span class="badge ${l7Class}">${flow.l7_protocol}</span>`;
-                }
-
-                let latencyText = `<span style="color: #94a3b8;">—</span>`;
-                if (flow.latency_ms && flow.latency_ms > 0) {
-                    latencyText = `<span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 500; font-family: 'JetBrains Mono'; border: 1px solid rgba(14, 165, 233, 0.2);">${flow.latency_ms.toFixed(2)} ms</span>`;
                 }
 
                 let durationText = `<span style="color: #94a3b8;">—</span>`;
@@ -1114,7 +1107,6 @@
                         <div>${formatBytes(flow.bytes_ingress)} /</div>
                         <div>${formatBytes(flow.bytes_egress)}</div>
                     </td>
-                    <td class="header-right" style="padding-right: 2rem;">${latencyText}</td>
                     <td class="header-right" style="padding-right: 2rem;">${durationText}</td>
                     <td>
                         <div>
@@ -1245,11 +1237,6 @@
                         l7Badge = ` <span class="badge ${l7Class}">${flow.l7_protocol}</span>`;
                     }
 
-                    let latencyText = `<span style="color: #94a3b8;">—</span>`;
-                    if (flow.latency_ms && flow.latency_ms > 0) {
-                        latencyText = `<span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; font-weight: 500; font-family: 'JetBrains Mono'; border: 1px solid rgba(14, 165, 233, 0.2);">${flow.latency_ms.toFixed(2)} ms</span>`;
-                    }
-
                     let durationText = `<span style="color: #94a3b8;">—</span>`;
                     if (flow.duration_ms && flow.duration_ms > 0) {
                         let sec = flow.duration_ms / 1000;
@@ -1272,7 +1259,6 @@
                             <div>${formatBytes(flow.bytes_ingress)} /</div>
                             <div>${formatBytes(flow.bytes_egress)}</div>
                         </td>
-                        <td class="header-right" style="padding-right: 2rem;">${latencyText}</td>
                         <td class="header-right" style="padding-right: 2rem;">${durationText}</td>
                         <td>${attribution}</td>
                     `;

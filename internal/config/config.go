@@ -32,7 +32,7 @@ type AgentConfig struct {
 	// Shorter intervals reduce latency but increase CPU usage.
 	CollectInterval time.Duration `yaml:"collect_interval"`
 
-	// CacheTTL is how long process metadata is cached before re-reading /proc.
+	// CacheTTL is retained for configuration compatibility.
 	CacheTTL time.Duration `yaml:"cache_ttl"`
 }
 
@@ -80,6 +80,9 @@ func Load(path string) (*Config, error) {
 
 	// Override values using environment variables if defined.
 	cfg.applyEnvOverrides()
+	if cfg.Agent.CollectInterval <= 0 {
+		return nil, fmt.Errorf("collect_interval must be positive")
+	}
 
 	return &cfg, nil
 }

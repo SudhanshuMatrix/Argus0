@@ -17,11 +17,6 @@ agent:
   # During testing I found 5s is a reasonable default and giving good results.
   collect_interval: 5s
 
-  # TTL for the process metadata cache (PID → comm, container ID).
-  # Shorter TTL means more accurate attribution at the cost of more /proc reads.
-  # Again in testing I found 30s is a reasonable default and giving good results.
-  cache_ttl: 30s
-
 prometheus:
   # Address for the Prometheus /metrics HTTP endpoint.
   # Kubernetes Prometheus scraping via annotation:

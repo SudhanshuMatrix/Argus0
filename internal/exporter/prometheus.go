@@ -1,244 +1,213 @@
-// Package exporter — Prometheus metrics exporter for Argus.
-//
-// This file implements a Prometheus exporter that exposes three metrics:
-//   - network_bytes_total{interface, protocol, direction}
-//   - network_packets_total{interface, protocol, direction}
-//   - network_active_connections{interface, protocol}
-//
-// The exporter registers custom Prometheus collectors rather than using the
-// simple counter/gauge helpers. This lets us batch-update all metrics from a
-// single BPF map read rather than updating on every packet, which would be
-// prohibitively expensive. The Describe/Collect pattern also gives us full
-// control over label cardinality.
-//
-// HTTP server is started on :9090/metrics (configurable) using the .env file.
 package exporter
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/sudhanshu-singh/argus/internal/store"
 )
 
-// Prometheus label names used across all metrics.
-const (
-	labelInterface  = "interface"
-	labelProtocol   = "protocol"
-	labelL7Protocol = "l7_protocol"
-	labelDirection  = "direction"
-)
+type protocolLabels struct {
+	protocol string
+	l7       string
+}
 
-// PrometheusExporter implements the Exporter interface and exposes metrics
-// via an HTTP /metrics endpoint compatible with Prometheus scraping.
+type traffic struct {
+	bytes, packets uint64
+}
+
+type totals struct {
+	ingress, egress traffic
+}
+
+type flowKey struct {
+	srcIP, dstIP     string
+	srcPort, dstPort uint16
+	protocol         string
+}
+
+type flowCounters struct {
+	firstSeen uint64
+	totals
+}
+
 type PrometheusExporter struct {
 	mu        sync.RWMutex
 	ifaceName string
 	log       *logrus.Logger
+	registry  *prometheus.Registry
 
-	// Prometheus descriptors — immutable, defined once at construction.
-	bytesDesc   *prometheus.Desc
-	pktsDesc    *prometheus.Desc
-	activeConns *prometheus.Desc
+	bytes, packets, active, entries, failures *prometheus.Desc
 
-	// Current metric values — updated atomically by Export(), read by Collect().
-	// We accumulate totals across all collection intervals to produce monotonic
-	// counters (Prometheus expects counters to only increase).
-	bytesByKey map[metricKey]uint64
-	pktsByKey  map[metricKey]uint64
-	connsByKey map[connKey]uint64
+	totals    map[protocolLabels]totals
+	activeNow map[protocolLabels]uint64
+	previous  map[flowKey]flowCounters
+	next      map[flowKey]flowCounters
+	failed    uint64
 }
 
-// metricKey identifies a unique {interface, protocol, l7_protocol, direction} combination.
-type metricKey struct {
-	protocol   string
-	l7Protocol string
-	direction  string
-}
-
-// connKey identifies a unique {interface, protocol, l7_protocol} combination for the
-// active connections gauge.
-type connKey struct {
-	protocol   string
-	l7Protocol string
-}
-
-// NewPrometheusExporter creates a PrometheusExporter and registers it with
-// the default Prometheus registry. Returns an error if registration fails
-// (e.g., name collision with another exporter).
+// Each agent has its own registry so it can be started and stopped in process.
 func NewPrometheusExporter(ifaceName string, log *logrus.Logger) (*PrometheusExporter, error) {
+	directions := []string{"interface", "protocol", "l7_protocol", "direction"}
 	exp := &PrometheusExporter{
-		ifaceName:  ifaceName,
-		log:        log,
-		bytesByKey: make(map[metricKey]uint64),
-		pktsByKey:  make(map[metricKey]uint64),
-		connsByKey: make(map[connKey]uint64),
-
-		// --- Descriptor definitions ---
-		//
-		// prometheus.NewDesc(fqName, help, variableLabels, constLabels)
-		//
-		// variableLabels are the per-series labels; their values come from
-		// the Collect() method when we call prometheus.MustNewConstMetric().
-		// constLabels are baked into every series (e.g., a fixed hostname).
-
-		bytesDesc: prometheus.NewDesc(
-			"network_bytes_total",
-			"Total number of network bytes observed by Argus, partitioned by interface, protocol, l7_protocol, and direction.",
-			[]string{labelInterface, labelProtocol, labelL7Protocol, labelDirection},
-			nil,
-		),
-
-		pktsDesc: prometheus.NewDesc(
-			"network_packets_total",
-			"Total number of network packets observed by Argus, partitioned by interface, protocol, l7_protocol, and direction.",
-			[]string{labelInterface, labelProtocol, labelL7Protocol, labelDirection},
-			nil,
-		),
-
-		activeConns: prometheus.NewDesc(
-			"network_active_connections",
-			"Number of distinct active flows observed in the last collection interval.",
-			[]string{labelInterface, labelProtocol, labelL7Protocol},
-			nil,
-		),
+		ifaceName: ifaceName,
+		log:       log,
+		registry:  prometheus.NewRegistry(),
+		bytes: prometheus.NewDesc("network_bytes_total",
+			"Cumulative skb bytes accounted for in published flow snapshots.", directions, nil),
+		packets: prometheus.NewDesc("network_packets_total",
+			"Cumulative packets accounted for in published flow snapshots.", directions, nil),
+		active: prometheus.NewDesc("network_active_connections",
+			"Directional flows with newly observed traffic in the latest complete collection.", []string{"interface", "protocol", "l7_protocol"}, nil),
+		entries: prometheus.NewDesc("network_flow_map_entries",
+			"Entries in the latest complete flow map collection.", []string{"interface"}, nil),
+		failures: prometheus.NewDesc("network_flow_update_failures_total",
+			"Cumulative packets the BPF flow map could not account for.", []string{"interface"}, nil),
+		totals:   make(map[protocolLabels]totals),
+		previous: make(map[flowKey]flowCounters),
+		next:     make(map[flowKey]flowCounters),
 	}
-
-	// Register our custom collector with Prometheus's default registry.
-	if err := prometheus.Register(exp); err != nil {
+	exp.registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	if err := exp.registry.Register(exp); err != nil {
 		return nil, err
 	}
-
 	return exp, nil
 }
 
-// Describe implements prometheus.Collector. Prometheus calls this once at
-// registration to learn what metrics this collector can produce. We send one
-// Desc per metric family.
 func (p *PrometheusExporter) Describe(ch chan<- *prometheus.Desc) {
-	ch <- p.bytesDesc
-	ch <- p.pktsDesc
-	ch <- p.activeConns
+	ch <- p.bytes
+	ch <- p.packets
+	ch <- p.active
+	ch <- p.entries
+	ch <- p.failures
 }
 
-// Collect implements prometheus.Collector. Prometheus calls this every time
-// the /metrics endpoint is scraped. We read the current accumulated values
-// under the read lock and emit them as const metrics.
-//
-// Prometheus counter semantics: values must only ever increase. We ensure
-// this by accumulating totals in bytesByKey / pktsByKey rather than replacing
-// them each interval — the BPF map also accumulates, so we are consistent.
 func (p *PrometheusExporter) Collect(ch chan<- prometheus.Metric) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	for key, bytes := range p.bytesByKey {
-		ch <- prometheus.MustNewConstMetric(
-			p.bytesDesc,
-			prometheus.CounterValue,
-			float64(bytes),
-			p.ifaceName, key.protocol, key.l7Protocol, key.direction,
-		)
+	for labels, total := range p.totals {
+		p.emitTraffic(ch, labels, "ingress", total.ingress)
+		p.emitTraffic(ch, labels, "egress", total.egress)
+		ch <- prometheus.MustNewConstMetric(p.active, prometheus.GaugeValue,
+			float64(p.activeNow[labels]), p.ifaceName, labels.protocol, labels.l7)
 	}
-
-	for key, pkts := range p.pktsByKey {
-		ch <- prometheus.MustNewConstMetric(
-			p.pktsDesc,
-			prometheus.CounterValue,
-			float64(pkts),
-			p.ifaceName, key.protocol, key.l7Protocol, key.direction,
-		)
-	}
-
-	for key, count := range p.connsByKey {
-		ch <- prometheus.MustNewConstMetric(
-			p.activeConns,
-			prometheus.GaugeValue,
-			float64(count),
-			p.ifaceName, key.protocol, key.l7Protocol,
-		)
-	}
+	ch <- prometheus.MustNewConstMetric(p.entries, prometheus.GaugeValue, float64(len(p.previous)), p.ifaceName)
+	ch <- prometheus.MustNewConstMetric(p.failures, prometheus.CounterValue, float64(p.failed), p.ifaceName)
 }
 
-// Export implements the Exporter interface. It is called by the collector
-// every collection interval with the latest slice of enriched flows.
-// We accumulate byte/packet totals and count distinct flows per protocol.
-func (p *PrometheusExporter) Export(flows interface{}) {
-	// Type assert — the collector package passes []store.Flow.
-	flowSlice, ok := flows.([]store.Flow)
-	if !ok {
-		p.log.Error("PrometheusExporter received unexpected type from collector")
-		return
-	}
+func (p *PrometheusExporter) emitTraffic(ch chan<- prometheus.Metric, labels protocolLabels, direction string, value traffic) {
+	ch <- prometheus.MustNewConstMetric(p.bytes, prometheus.CounterValue,
+		float64(value.bytes), p.ifaceName, labels.protocol, labels.l7, direction)
+	ch <- prometheus.MustNewConstMetric(p.packets, prometheus.CounterValue,
+		float64(value.packets), p.ifaceName, labels.protocol, labels.l7, direction)
+}
 
-	// Active connection counts are reset each interval (it's a gauge).
-	newConnsByKey := make(map[connKey]uint64)
-
+// Export adds deltas in each kernel counter. A label change applies to
+// subsequent deltas, so historical totals under the old label stay monotonic.
+func (p *PrometheusExporter) Export(flows []store.Flow, updateFailures uint64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	for _, flow := range flowSlice {
+	clear(p.next)
+	active := make(map[protocolLabels]uint64)
+	for _, flow := range flows {
+		key := flowKey{flow.SrcIP, flow.DstIP, flow.SrcPort, flow.DstPort, flow.Protocol}
+		if _, duplicate := p.next[key]; duplicate {
+			continue
+		}
+		current := flowCounters{
+			firstSeen: flow.FirstSeenNs,
+			totals: totals{
+				ingress: traffic{flow.BytesIngress, flow.PktsIngress},
+				egress:  traffic{flow.BytesEgress, flow.PktsEgress},
+			},
+		}
+		p.next[key] = current
+		previous := p.previous[key]
+		if previous.firstSeen != current.firstSeen {
+			previous = flowCounters{}
+		}
+		inc := diff(current.ingress, previous.ingress)
+		out := diff(current.egress, previous.egress)
+		if inc == (traffic{}) && out == (traffic{}) {
+			continue
+		}
+
 		l7 := flow.L7Protocol
 		if l7 == "" {
 			l7 = "unknown"
 		}
-		ingressKey := metricKey{protocol: flow.Protocol, l7Protocol: l7, direction: "ingress"}
-		egressKey := metricKey{protocol: flow.Protocol, l7Protocol: l7, direction: "egress"}
-		cKey := connKey{protocol: flow.Protocol, l7Protocol: l7}
-
-		// Accumulate bytes and packets (counters must never decrease).
-		p.bytesByKey[ingressKey] += flow.BytesIngress
-		p.bytesByKey[egressKey] += flow.BytesEgress
-		p.pktsByKey[ingressKey] += uint64(flow.PktsIngress)
-		p.pktsByKey[egressKey] += uint64(flow.PktsEgress)
-
-		// Count unique active flows per protocol.
-		newConnsByKey[cKey]++
+		labels := protocolLabels{flow.Protocol, l7}
+		total := p.totals[labels]
+		total.ingress.bytes += inc.bytes
+		total.ingress.packets += inc.packets
+		total.egress.bytes += out.bytes
+		total.egress.packets += out.packets
+		p.totals[labels] = total
+		active[labels]++
 	}
-
-	// Replace the gauge snapshot.
-	p.connsByKey = newConnsByKey
+	p.activeNow = active
+	p.previous, p.next = p.next, p.previous
+	p.failed = updateFailures
 }
 
-// ServeMetrics starts the HTTP server. It blocks until ctx is
-// cancelled. The caller should run this in a goroutine.
-//
-// Example:
-//
-//	go exp.ServeMetrics(ctx, ":9090", nil)
+func diff(current, previous traffic) traffic {
+	return traffic{delta(current.bytes, previous.bytes), delta(current.packets, previous.packets)}
+}
+
+func delta(current, previous uint64) uint64 {
+	if current < previous {
+		return current
+	}
+	return current - previous
+}
+
 func (p *PrometheusExporter) ServeMetrics(ctx context.Context, addr string, registerExtra func(*http.ServeMux)) error {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	p.log.WithField("addr", ln.Addr()).Info("HTTP server listening")
+	return p.serve(ctx, ln, registerExtra)
+}
+
+func (p *PrometheusExporter) serve(ctx context.Context, ln net.Listener, registerExtra func(*http.ServeMux)) error {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{}))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-
 	if registerExtra != nil {
 		registerExtra(mux)
 	}
 
-	server := &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	done := make(chan error, 1)
+	go func() { done <- server.Serve(ln) }()
 
-	// Shutdown the HTTP server when ctx is cancelled.
-	go func() {
-		<-ctx.Done()
-		p.log.Info("Shutting down HTTP server")
-		if err := server.Shutdown(context.Background()); err != nil {
-			p.log.WithError(err).Warn("Error during HTTP server shutdown")
-		}
-	}()
-
-	p.log.WithField("addr", addr).Info("HTTP server listening")
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	select {
+	case err := <-done:
 		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownErr := server.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, server.Close())
+		}
+		serveErr := <-done
+		if errors.Is(serveErr, http.ErrServerClosed) {
+			return shutdownErr
+		}
+		return errors.Join(shutdownErr, serveErr)
 	}
-	return nil
 }
