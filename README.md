@@ -8,18 +8,18 @@ Argus observes directional IPv4 TCP and UDP tuples at TCX ingress and egress on 
 
 ## Visual Diagnostics Dashboard
 
-These screenshots show an earlier dashboard with process and latency fields.
+The screenshots show the current dashboard with sample traffic data.
 
-### Overview Console
+### Traffic overview
 
 <p align="center">
-  <img src="dashboard_screenshot_1.png" alt="Argus Diagnostics UI - Overview Console" width="100%">
+  <img src="dashboard_screenshot_1.png" alt="Argus traffic overview with observation counts and a rate chart" width="100%">
 </p>
 
-### Stream Inspection Console
+### Flow filtering and pagination
 
 <p align="center">
-  <img src="dashboard_screenshot_2.png" alt="Argus Diagnostics UI - Stream Inspection Console" width="100%">
+  <img src="dashboard_screenshot_2.png" alt="Page two of the Argus flow snapshot filtered to TCP" width="100%">
 </p>
 
 ## Run locally
