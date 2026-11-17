@@ -74,4 +74,6 @@ sum by (direction) (rate(network_observed_bytes_total[5m]))
 
 Run `make check-generated` to check both endian objects and Go bindings. `make generate-pinned` regenerates them with Zig 0.15.2, libbpf 1.5.0 headers, and the module's pinned bpf2go. Both commands verify downloaded archives and normalize debug paths. Building from the checked-in objects requires only Go.
 
+At 100,000 synthetic tuples, median userspace collection and publication fell from 36.34 ms to 26.91 ms and allocated bytes per operation fell from 100.1 MB to 18.0 MB. In isolated ARM64 veth tests, Argus counted all 11,900 eligible UDP observations with a 1,000-entry detail cap. Five short attached-to-attached trials showed similar throughput at the offered load, lower RSS, and higher agent CPU.
+
 See the [release measurements](benchmarks/results/2026-11-17-flow-lifecycle/report.md), [benchmark instructions](benchmarks/README.md), and [historical ARM64 results](benchmarks/results/2026-11-15-637ddfa/report.md). Portable Go tests, Linux builds, and the explicitly gated TCX kernel tests cover different parts of the release.

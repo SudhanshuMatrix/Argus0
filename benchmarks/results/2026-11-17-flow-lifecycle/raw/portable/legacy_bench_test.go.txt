@@ -1,0 +1,60 @@
+package collector
+
+import (
+	"encoding/binary"
+	"fmt"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/sudhanshu-singh/argus/internal/bpf"
+	"github.com/sudhanshu-singh/argus/internal/exporter"
+	"github.com/sudhanshu-singh/argus/internal/store"
+)
+
+func BenchmarkLegacyCollectAndPublish(b *testing.B) {
+	for _, count := range []int{1000, 10000, 100000} {
+		b.Run(fmt.Sprint(count), func(b *testing.B) {
+			keys := make([]bpf.FlowKey, count)
+			values := make([]bpf.FlowMetrics, count)
+			for i := range keys {
+				keys[i] = bpf.FlowKey{
+					SrcIp:    binary.NativeEndian.Uint32([]byte{198, 18, 0, byte(1 + i/50000)}),
+					DstIp:    binary.NativeEndian.Uint32([]byte{198, 19, 0, 1}),
+					SrcPort:  networkToHostU16(uint16(10000 + i%50000)),
+					DstPort:  networkToHostU16(443),
+					Protocol: 6,
+				}
+				values[i] = bpf.FlowMetrics{BytesEgress: uint64(i+1) * 1024, PktsEgress: uint64(i + 1), FirstSeenNs: 1, LastSeenNs: uint64(i + 2), L7Proto: 2}
+			}
+			rand.New(rand.NewSource(42)).Shuffle(len(keys), func(i, j int) {
+				keys[i], keys[j] = keys[j], keys[i]
+				values[i], values[j] = values[j], values[i]
+			})
+			exp, err := exporter.NewPrometheusExporter("test0", logrus.New())
+			if err != nil {
+				b.Fatal(err)
+			}
+			s := store.NewFlowStore(60)
+			wall := time.Now()
+			run := func() {
+				wall = wall.Add(time.Second)
+				var flows []store.Flow
+				for i, key := range keys {
+					values[i].BytesEgress += 512
+					values[i].PktsEgress++
+					flows = append(flows, buildFlow(key, values[i], wall))
+				}
+				s.Write(store.Snapshot{CollectedAt: wall, Flows: flows})
+				exp.Export(flows, 0)
+			}
+			run()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				run()
+			}
+		})
+	}
+}

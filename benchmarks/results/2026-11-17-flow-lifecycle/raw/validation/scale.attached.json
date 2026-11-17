@@ -1,0 +1,54 @@
+{
+  "ingress": [
+    {
+      "id": 149,
+      "name": "tc_ingress",
+      "link_id": 85,
+      "run_count": 0,
+      "runtime_ns": 0
+    }
+  ],
+  "egress": [
+    {
+      "id": 150,
+      "name": "tc_egress",
+      "link_id": 86,
+      "run_count": 0,
+      "runtime_ns": 0
+    }
+  ],
+  "maps": [
+    {
+      "id": 594,
+      "name": "observations",
+      "max_entries": 7,
+      "key_bytes": 4,
+      "value_bytes": 16,
+      "fdinfo_memlock_bytes": 544
+    },
+    {
+      "id": 596,
+      "name": "flow_maps",
+      "max_entries": 1,
+      "key_bytes": 4,
+      "value_bytes": 4,
+      "fdinfo_memlock_bytes": 272
+    },
+    {
+      "id": 598,
+      "name": "flow_map",
+      "max_entries": 1000,
+      "key_bytes": 16,
+      "value_bytes": 56,
+      "fdinfo_memlock_bytes": 137600
+    },
+    {
+      "id": 597,
+      "name": "flow_update_fai",
+      "max_entries": 1,
+      "key_bytes": 4,
+      "value_bytes": 8,
+      "fdinfo_memlock_bytes": 288
+    }
+  ]
+}

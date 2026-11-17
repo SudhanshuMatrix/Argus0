@@ -1,0 +1,275 @@
+[
+  {
+    "sent_in_window": {
+      "sender_pid": 2569,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.13613700799942308
+    },
+    "sent_total": 900,
+    "received_total": 900,
+    "entries": 900,
+    "eligible_udp_egress_packets": 900,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:35:50.890661008Z",
+    "process": {
+      "monotonic_seconds": 11002.985464992,
+      "cpu_ticks": 107,
+      "rss_kib": 22172
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2595,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.15473799999926996
+    },
+    "sent_total": 1800,
+    "received_total": 1800,
+    "entries": 900,
+    "eligible_udp_egress_packets": 1800,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:35:52.884185008Z",
+    "process": {
+      "monotonic_seconds": 11004.980674992,
+      "cpu_ticks": 118,
+      "rss_kib": 22284
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2621,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.13195400000040536
+    },
+    "sent_total": 2700,
+    "received_total": 2700,
+    "entries": 900,
+    "eligible_udp_egress_packets": 2700,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:35:54.888257008Z",
+    "process": {
+      "monotonic_seconds": 11007.010578992,
+      "cpu_ticks": 133,
+      "rss_kib": 22480
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2647,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.12210499199863989
+    },
+    "sent_total": 3600,
+    "received_total": 3600,
+    "entries": 900,
+    "eligible_udp_egress_packets": 3600,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:35:56.905607008Z",
+    "process": {
+      "monotonic_seconds": 11009.047322992,
+      "cpu_ticks": 145,
+      "rss_kib": 14992
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2671,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.10795100799987267
+    },
+    "sent_total": 4500,
+    "received_total": 4500,
+    "entries": 900,
+    "eligible_udp_egress_packets": 4500,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:35:58.882297008Z",
+    "process": {
+      "monotonic_seconds": 11010.964462,
+      "cpu_ticks": 156,
+      "rss_kib": 14748
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2696,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.11392499199973827
+    },
+    "sent_total": 5400,
+    "received_total": 5400,
+    "entries": 900,
+    "eligible_udp_egress_packets": 5400,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:00.882583008Z",
+    "process": {
+      "monotonic_seconds": 11012.919164,
+      "cpu_ticks": 168,
+      "rss_kib": 14920
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2722,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.1799329920013406
+    },
+    "sent_total": 6300,
+    "received_total": 6300,
+    "entries": 900,
+    "eligible_udp_egress_packets": 6300,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:02.894627008Z",
+    "process": {
+      "monotonic_seconds": 11014.981680992,
+      "cpu_ticks": 190,
+      "rss_kib": 14132
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2744,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.1902879999997822
+    },
+    "sent_total": 7200,
+    "received_total": 7200,
+    "entries": 900,
+    "eligible_udp_egress_packets": 7200,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:04.891137008Z",
+    "process": {
+      "monotonic_seconds": 11016.968718,
+      "cpu_ticks": 202,
+      "rss_kib": 14132
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2770,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.2681979999997566
+    },
+    "sent_total": 8100,
+    "received_total": 8100,
+    "entries": 900,
+    "eligible_udp_egress_packets": 8100,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:06.882516Z",
+    "process": {
+      "monotonic_seconds": 11018.940730992,
+      "cpu_ticks": 214,
+      "rss_kib": 16888
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2795,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.16286899199985783
+    },
+    "sent_total": 9000,
+    "received_total": 9000,
+    "entries": 900,
+    "eligible_udp_egress_packets": 9000,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:08.880752Z",
+    "process": {
+      "monotonic_seconds": 11020.97883,
+      "cpu_ticks": 226,
+      "rss_kib": 16848
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2821,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.10829699200075993
+    },
+    "sent_total": 9900,
+    "received_total": 9900,
+    "entries": 900,
+    "eligible_udp_egress_packets": 9900,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:10.885961008Z",
+    "process": {
+      "monotonic_seconds": 11022.883726992,
+      "cpu_ticks": 238,
+      "rss_kib": 16864
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2847,
+      "packets_sent": 900,
+      "payload_bytes": 32,
+      "seconds": 0.10639000000082888
+    },
+    "sent_total": 10800,
+    "received_total": 10800,
+    "entries": 900,
+    "eligible_udp_egress_packets": 10800,
+    "detail_admission_failures": 0,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:13.058218Z",
+    "process": {
+      "monotonic_seconds": 11025.205922,
+      "cpu_ticks": 262,
+      "rss_kib": 17120
+    }
+  },
+  {
+    "sent_in_window": {
+      "sender_pid": 2875,
+      "packets_sent": 1100,
+      "payload_bytes": 32,
+      "seconds": 0.13321600000017497
+    },
+    "sent_total": 11900,
+    "received_total": 11900,
+    "entries": 1000,
+    "eligible_udp_egress_packets": 11900,
+    "detail_admission_failures": 100,
+    "observation_accounting_failures": 0,
+    "page_rows": 100,
+    "generated_at": "2026-11-17T11:36:14.881971008Z",
+    "process": {
+      "monotonic_seconds": 11026.995776,
+      "cpu_ticks": 274,
+      "rss_kib": 17028
+    }
+  }
+]

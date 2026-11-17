@@ -1,0 +1,22 @@
+goos: linux
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/collector
+BenchmarkKernelReadMap/1000/batch-2   	       3	   1440997 ns/op	  180448 B/op	       9 allocs/op
+BenchmarkKernelReadMap/1000/batch-2   	       3	   6039333 ns/op	  180448 B/op	       9 allocs/op
+BenchmarkKernelReadMap/1000/batch-2   	       3	   4015664 ns/op	  180448 B/op	       9 allocs/op
+BenchmarkKernelReadMap/1000/iterator-2         	       3	  15470000 ns/op	  180552 B/op	       9 allocs/op
+BenchmarkKernelReadMap/1000/iterator-2         	       3	  13995333 ns/op	  180552 B/op	       9 allocs/op
+BenchmarkKernelReadMap/1000/iterator-2         	       3	  15233333 ns/op	  180552 B/op	       9 allocs/op
+BenchmarkKernelReadMap/10000/batch-2           	       3	  34608667 ns/op	 1762632 B/op	      47 allocs/op
+BenchmarkKernelReadMap/10000/batch-2           	       3	  17317333 ns/op	 1762632 B/op	      47 allocs/op
+BenchmarkKernelReadMap/10000/batch-2           	       3	  16336667 ns/op	 1762720 B/op	      49 allocs/op
+BenchmarkKernelReadMap/10000/iterator-2        	       3	 136610336 ns/op	 1761864 B/op	      12 allocs/op
+BenchmarkKernelReadMap/10000/iterator-2        	       3	 135493664 ns/op	 1761704 B/op	       9 allocs/op
+BenchmarkKernelReadMap/10000/iterator-2        	       3	 136290997 ns/op	 1761784 B/op	      10 allocs/op
+BenchmarkKernelReadMap/100000/batch-2          	       3	 226960997 ns/op	17614496 B/op	     401 allocs/op
+BenchmarkKernelReadMap/100000/batch-2          	       3	 158022331 ns/op	17614496 B/op	     401 allocs/op
+BenchmarkKernelReadMap/100000/batch-2          	       3	 159045003 ns/op	17614496 B/op	     401 allocs/op
+BenchmarkKernelReadMap/100000/iterator-2       	       3	1387992997 ns/op	17604936 B/op	       9 allocs/op
+BenchmarkKernelReadMap/100000/iterator-2       	       3	1341584667 ns/op	17605112 B/op	      10 allocs/op
+BenchmarkKernelReadMap/100000/iterator-2       	       3	1418948997 ns/op	17605112 B/op	      10 allocs/op
+PASS

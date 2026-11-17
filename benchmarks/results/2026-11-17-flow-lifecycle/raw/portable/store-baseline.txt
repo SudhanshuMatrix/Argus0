@@ -1,0 +1,12 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/store
+cpu: Apple M2
+BenchmarkComputeStats/100-8         	  168704	      1319 ns/op	     304 B/op	       3 allocs/op
+BenchmarkComputeStats/100-8         	  183588	      1308 ns/op	     304 B/op	       3 allocs/op
+BenchmarkComputeStats/100-8         	  183225	      1351 ns/op	     304 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	    2061	    117730 ns/op	     304 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	    2036	    118228 ns/op	     304 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	    2080	    123189 ns/op	     304 B/op	       3 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/store	2.007s

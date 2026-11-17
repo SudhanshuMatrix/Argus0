@@ -1,0 +1,2 @@
+readiness: 503
+liveness: 200

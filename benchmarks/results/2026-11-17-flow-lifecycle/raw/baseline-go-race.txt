@@ -1,0 +1,8 @@
+?   	github.com/sudhanshu-singh/argus/cmd/network-observer	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/api	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/bpf	[no test files]
+ok  	github.com/sudhanshu-singh/argus/internal/collector	(cached)
+?   	github.com/sudhanshu-singh/argus/internal/config	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/enricher	[no test files]
+ok  	github.com/sudhanshu-singh/argus/internal/exporter	1.399s
+ok  	github.com/sudhanshu-singh/argus/internal/store	(cached) [no tests to run]

@@ -1,0 +1,22 @@
+{"interface":"argus0","level":"info","msg":"Argus network observer starting","time":"2026-11-17T11:35:46.527179008Z","version":"79a7581"}
+{"interface":"argus0","level":"info","msg":"Attached ingress and egress TCX programs","time":"2026-11-17T11:35:46.865122Z"}
+{"collect_interval":2000000000,"interface":"argus0","level":"info","metrics_addr":"127.0.0.1:19090","msg":"Argus agent running","time":"2026-11-17T11:35:46.871224Z"}
+{"addr":{"IP":"127.0.0.1","Port":19090,"Zone":""},"level":"info","msg":"HTTP server listening","time":"2026-11-17T11:35:46.880472Z"}
+{"count":0,"duration_ns":6930000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:46.890486Z"}
+{"count":0,"duration_ns":634992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:48.884376Z"}
+{"count":900,"duration_ns":13273008,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:50.904413008Z"}
+{"count":900,"duration_ns":4136000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:52.888358Z"}
+{"count":900,"duration_ns":24234000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:54.912552Z"}
+{"count":900,"duration_ns":4322992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:56.909978Z"}
+{"count":900,"duration_ns":9497008,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:35:58.891971008Z"}
+{"count":900,"duration_ns":8718000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:00.891351008Z"}
+{"count":900,"duration_ns":9364000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:02.904476Z"}
+{"count":900,"duration_ns":6040000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:04.897253008Z"}
+{"count":900,"duration_ns":4044992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:06.886606Z"}
+{"count":900,"duration_ns":21992000,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:08.902945008Z"}
+{"count":900,"duration_ns":6774992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:10.892788Z"}
+{"count":900,"duration_ns":76924992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:13.135897008Z"}
+{"count":1000,"duration_ns":4383008,"flow_update_failures":100,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:14.886398Z"}
+{"count":0,"duration_ns":495008,"flow_update_failures":100,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:16.88225Z"}
+{"count":0,"duration_ns":354000,"flow_update_failures":100,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:17.036567008Z"}
+{"level":"info","msg":"Argus agent stopped gracefully","time":"2026-11-17T11:36:17.037189008Z"}

@@ -1,0 +1,56 @@
+package api
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/netip"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/sudhanshu-singh/argus/internal/store"
+)
+
+func BenchmarkServeFlows(b *testing.B) {
+	for _, size := range []int{1000, 10000, 100000} {
+		b.Run(fmt.Sprint(size), func(b *testing.B) {
+			rows := make([]store.Flow, size)
+			for i := range rows {
+				key := size - i
+				rows[i] = store.Flow{
+					Protocol: "TCP",
+					SrcIP:    netip.AddrFrom4([4]byte{10, byte(key >> 16), byte(key >> 8), byte(key)}).String(),
+					DstIP:    "198.18.0.10",
+					SrcPort:  49153,
+					DstPort:  443,
+				}
+			}
+			s := store.NewFlowStore(1)
+			s.Write(store.Snapshot{CollectedAt: time.Now(), Flows: rows})
+			mux := http.NewServeMux()
+			NewHandler(s, "eth-test", logrus.New()).RegisterRoutes(mux)
+			request := httptest.NewRequest(http.MethodGet, "/api/flows", nil)
+			durations := make([]time.Duration, b.N)
+			var responseBytes int
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				w := httptest.NewRecorder()
+				start := time.Now()
+				mux.ServeHTTP(w, request)
+				durations[i] = time.Since(start)
+				if w.Code != http.StatusOK {
+					b.Fatalf("unexpected HTTP status %d", w.Code)
+				}
+				responseBytes = w.Body.Len()
+			}
+			b.StopTimer()
+			slices.Sort(durations)
+			b.ReportMetric(float64(responseBytes), "response_B/op")
+			b.ReportMetric(float64(durations[(len(durations)-1)/2].Nanoseconds()), "p50_ns")
+			b.ReportMetric(float64(durations[(len(durations)*95+99)/100-1].Nanoseconds()), "p95_ns")
+		})
+	}
+}

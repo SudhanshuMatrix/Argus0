@@ -1,0 +1,45 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/api
+cpu: Apple M2
+BenchmarkServeFlows/1000-8         	      25	    154350 ns/op	    133167 p50_ns	    251875 p95_ns	     25222 response_B/op	   50559 B/op	     222 allocs/op
+BenchmarkServeFlows/10000-8        	      25	    113310 ns/op	    107917 p50_ns	    126917 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+BenchmarkServeFlows/100000-8       	      25	     86127 ns/op	     83083 p50_ns	     97000 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/api	0.407s
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/api
+cpu: Apple M2
+BenchmarkServeFlows/1000-8         	      25	    131260 ns/op	    127667 p50_ns	    160917 p95_ns	     25221 response_B/op	   55109 B/op	     223 allocs/op
+BenchmarkServeFlows/10000-8        	      25	    110508 ns/op	    106875 p50_ns	    132792 p95_ns	     25222 response_B/op	   55109 B/op	     223 allocs/op
+BenchmarkServeFlows/100000-8       	      25	     86390 ns/op	     80458 p50_ns	    128417 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/api	0.222s
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/api
+cpu: Apple M2
+BenchmarkServeFlows/1000-8         	      25	     61180 ns/op	     57500 p50_ns	     73417 p95_ns	     25222 response_B/op	   50559 B/op	     222 allocs/op
+BenchmarkServeFlows/10000-8        	      25	     60608 ns/op	     57375 p50_ns	     84792 p95_ns	     25222 response_B/op	   55109 B/op	     223 allocs/op
+BenchmarkServeFlows/100000-8       	      25	     61685 ns/op	     57292 p50_ns	     84333 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/api	0.205s
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/api
+cpu: Apple M2
+BenchmarkServeFlows/1000-8         	      25	    124405 ns/op	    125458 p50_ns	    184291 p95_ns	     25222 response_B/op	   50559 B/op	     222 allocs/op
+BenchmarkServeFlows/10000-8        	      25	     78920 ns/op	     77542 p50_ns	     92125 p95_ns	     25222 response_B/op	   55109 B/op	     223 allocs/op
+BenchmarkServeFlows/100000-8       	      25	    141477 ns/op	     94958 p50_ns	    235583 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/api	0.215s
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/api
+cpu: Apple M2
+BenchmarkServeFlows/1000-8         	      25	     81503 ns/op	     77625 p50_ns	    105125 p95_ns	     25222 response_B/op	   55109 B/op	     222 allocs/op
+BenchmarkServeFlows/10000-8        	      25	     92277 ns/op	     73458 p50_ns	    122417 p95_ns	     25222 response_B/op	   55109 B/op	     223 allocs/op
+BenchmarkServeFlows/100000-8       	      25	     79468 ns/op	     76459 p50_ns	    105875 p95_ns	     25222 response_B/op	   55110 B/op	     223 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/api	0.227s

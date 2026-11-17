@@ -1,0 +1,52 @@
+File: exporter.test
+Type: cpu
+Time: 2026-11-17 13:54:19 IST
+Duration: 2.84s, Total samples = 2.16s (76.18%)
+Showing nodes accounting for 2.08s, 96.30% of 2.16s total
+Dropped 14 nodes (cum <= 0.01s)
+      flat  flat%   sum%        cum   cum%
+     0.28s 12.96% 12.96%      0.48s 22.22%  internal/runtime/maps.MemHash
+     0.27s 12.50% 25.46%      0.93s 43.06%  runtime.mapaccess2
+     0.20s  9.26% 34.72%      0.20s  9.26%  internal/runtime/maps.memHashAES
+     0.20s  9.26% 43.98%      0.68s 31.48%  runtime.strhash
+     0.17s  7.87% 51.85%      0.91s 42.13%  runtime.mapassign
+     0.15s  6.94% 58.80%      2.04s 94.44%  github.com/sudhanshu-singh/argus/internal/exporter.(*PrometheusExporter).Export
+     0.09s  4.17% 62.96%      0.09s  4.17%  runtime.memequal
+     0.08s  3.70% 66.67%      0.08s  3.70%  internal/runtime/maps.(*Map).directoryAt (inline)
+     0.08s  3.70% 70.37%      0.14s  6.48%  type:.eq.SSM4K4S
+     0.07s  3.24% 73.61%      0.07s  3.24%  runtime.memmove
+     0.07s  3.24% 76.85%      0.10s  4.63%  type:.eq.SS
+     0.06s  2.78% 79.63%      0.06s  2.78%  runtime.pthread_cond_signal
+     0.04s  1.85% 81.48%      0.21s  9.72%  internal/runtime/maps.(*Map).putSlotSmall
+     0.03s  1.39% 82.87%      0.04s  1.85%  internal/runtime/maps.(*Map).getWithKeySmall
+     0.03s  1.39% 84.26%      0.06s  2.78%  internal/runtime/maps.MemHash32
+     0.03s  1.39% 85.65%      0.03s  1.39%  internal/runtime/maps.memHash32AES
+     0.03s  1.39% 87.04%      0.03s  1.39%  runtime.madvise
+     0.03s  1.39% 88.43%      0.65s 30.09%  runtime.mapaccess1
+     0.03s  1.39% 89.81%      0.41s 18.98%  type:.hash.SS
+     0.03s  1.39% 91.20%      0.40s 18.52%  type:.hash.SSM4K4S
+     0.02s  0.93% 92.13%      0.02s  0.93%  internal/runtime/maps.(*Map).directoryIndex (inline)
+     0.02s  0.93% 93.06%      0.02s  0.93%  internal/runtime/maps.probeSeq.next (inline)
+     0.02s  0.93% 93.98%      0.11s  5.09%  internal/runtime/maps.typedmemmove
+     0.02s  0.93% 94.91%      0.09s  4.17%  runtime.typedmemmove
+     0.01s  0.46% 95.37%      2.06s 95.37%  github.com/sudhanshu-singh/argus/internal/exporter.BenchmarkExportSnapshots.func1
+     0.01s  0.46% 95.83%      0.02s  0.93%  internal/runtime/maps.(*table).Clear
+     0.01s  0.46% 96.30%      0.07s  3.24%  runtime.memhash32
+         0     0% 96.30%      0.02s  0.93%  internal/runtime/maps.(*Map).Clear
+         0     0% 96.30%      0.48s 22.22%  internal/runtime/maps.StrHash (inline)
+         0     0% 96.30%      0.03s  1.39%  runtime.(*mheap).alloc.func1
+         0     0% 96.30%      0.03s  1.39%  runtime.(*mheap).allocSpan
+         0     0% 96.30%      0.06s  2.78%  runtime.gopreempt_m (inline)
+         0     0% 96.30%      0.06s  2.78%  runtime.goschedImpl
+         0     0% 96.30%      0.02s  0.93%  runtime.mapclear
+         0     0% 96.30%      0.06s  2.78%  runtime.morestack
+         0     0% 96.30%      0.06s  2.78%  runtime.newstack
+         0     0% 96.30%      0.06s  2.78%  runtime.notewakeup
+         0     0% 96.30%      0.06s  2.78%  runtime.semawakeup
+         0     0% 96.30%      0.06s  2.78%  runtime.startm
+         0     0% 96.30%      0.03s  1.39%  runtime.sysUsed (inline)
+         0     0% 96.30%      0.03s  1.39%  runtime.sysUsedOS (inline)
+         0     0% 96.30%      0.04s  1.85%  runtime.systemstack
+         0     0% 96.30%      0.06s  2.78%  runtime.wakep
+         0     0% 96.30%      2.06s 95.37%  testing.(*B).launch
+         0     0% 96.30%      2.06s 95.37%  testing.(*B).runN

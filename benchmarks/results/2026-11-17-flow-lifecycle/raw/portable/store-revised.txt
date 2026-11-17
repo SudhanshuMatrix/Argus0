@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/store
+cpu: Apple M2
+BenchmarkComputeStats/100-8         	 2908384	        79.70 ns/op	     320 B/op	       3 allocs/op
+BenchmarkComputeStats/100-8         	 3001292	        88.32 ns/op	     320 B/op	       3 allocs/op
+BenchmarkComputeStats/100-8         	 2978313	        82.08 ns/op	     320 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	 2461711	       100.2 ns/op	     320 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	 2596215	        88.34 ns/op	     320 B/op	       3 allocs/op
+BenchmarkComputeStats/10000-8       	 2564672	        96.55 ns/op	     320 B/op	       3 allocs/op
+BenchmarkPublish/1000-8             	    8574	     29103 ns/op	  184688 B/op	       5 allocs/op
+BenchmarkPublish/1000-8             	    9339	     29840 ns/op	  184688 B/op	       5 allocs/op
+BenchmarkPublish/1000-8             	    8426	     40798 ns/op	  184688 B/op	       5 allocs/op
+BenchmarkPublish/10000-8            	     202	   1107350 ns/op	 1802608 B/op	       5 allocs/op
+BenchmarkPublish/10000-8            	     213	   1163615 ns/op	 1802608 B/op	       5 allocs/op
+BenchmarkPublish/10000-8            	     201	   1147444 ns/op	 1802608 B/op	       5 allocs/op
+BenchmarkPublish/100000-8           	      14	  15741208 ns/op	18006384 B/op	       5 allocs/op
+BenchmarkPublish/100000-8           	      15	  15737589 ns/op	18006391 B/op	       5 allocs/op
+BenchmarkPublish/100000-8           	      15	  15677714 ns/op	18006391 B/op	       5 allocs/op
+BenchmarkPage/1000-8                	  113290	      2028 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/1000-8                	  124540	      2052 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/1000-8                	  120802	      2035 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/10000-8               	   94758	      2547 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/10000-8               	   97386	      2559 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/10000-8               	   97384	      2621 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/100000-8              	  124803	      1814 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/100000-8              	  141370	      1732 ns/op	   18432 B/op	       1 allocs/op
+BenchmarkPage/100000-8              	  141774	      1721 ns/op	   18432 B/op	       1 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/store	8.014s

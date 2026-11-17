@@ -1,0 +1,8 @@
+?   	github.com/sudhanshu-singh/argus/cmd/network-observer	[no test files]
+ok  	github.com/sudhanshu-singh/argus/internal/api	1.414s
+?   	github.com/sudhanshu-singh/argus/internal/bpf	[no test files]
+ok  	github.com/sudhanshu-singh/argus/internal/collector	0.379s
+ok  	github.com/sudhanshu-singh/argus/internal/config	1.748s
+?   	github.com/sudhanshu-singh/argus/internal/enricher	[no test files]
+ok  	github.com/sudhanshu-singh/argus/internal/exporter	0.754s
+ok  	github.com/sudhanshu-singh/argus/internal/store	1.086s

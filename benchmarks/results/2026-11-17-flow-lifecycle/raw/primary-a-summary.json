@@ -1,0 +1,170 @@
+{
+  "trials": 10,
+  "baseline": {
+    "condition": "detached",
+    "revision": "1a4fd94d38b04b4b45afd4005d3776b6a12c11f4",
+    "argus_sha256": null
+  },
+  "repetitions_per_condition": 5,
+  "source_revision": "1a4fd94d38b04b4b45afd4005d3776b6a12c11f4",
+  "workloads": {
+    "udp-5M": {
+      "baseline": {
+        "receiver_mbps": {
+          "median": 4.993539782540523,
+          "mean": 4.993055047531198,
+          "min": 4.9847714117140525,
+          "max": 4.999297823352347,
+          "sample_stddev": 0.005858627764846725
+        },
+        "receiver_seconds": {
+          "median": 8.016554,
+          "mean": 8.014084,
+          "min": 8.003684,
+          "max": 8.027008,
+          "sample_stddev": 0.009317177362270328
+        },
+        "iperf_client_cpu_percent": {
+          "median": 22.853228519397252,
+          "mean": 20.683975838175634,
+          "min": 14.442129121518368,
+          "max": 24.3246681840906,
+          "sample_stddev": 4.258579635372062
+        },
+        "iperf_server_cpu_percent": {
+          "median": 8.346160333678336,
+          "mean": 8.663705072196937,
+          "min": 6.3330933131934986,
+          "max": 10.776330352627296,
+          "sample_stddev": 1.9497850667545877
+        },
+        "receiver_loss_percent": {
+          "median": 0,
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "sample_stddev": 0.0
+        },
+        "receiver_lost_packets": {
+          "median": 0,
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "sample_stddev": 0.0
+        },
+        "receiver_jitter_ms": {
+          "median": 0.29803803785495,
+          "mean": 0.5221231176150773,
+          "min": 0.010938525390885606,
+          "max": 1.5996198625042346,
+          "sample_stddev": 0.6281829749970116
+        },
+        "guest_kernel_cpu_percent": {
+          "median": 3.2301480484522207,
+          "mean": 2.6857476256153796,
+          "min": 1.710914454277286,
+          "max": 3.313840155945419,
+          "sample_stddev": 0.7996774918439744
+        },
+        "guest_steal_percent": {
+          "median": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "sample_stddev": 0.0
+        }
+      },
+      "enabled": {
+        "receiver_mbps": {
+          "median": 4.996498983418696,
+          "mean": 4.996547562009831,
+          "min": 4.99559798144034,
+          "max": 4.99745710805742,
+          "sample_stddev": 0.0007492354511433092
+        },
+        "receiver_seconds": {
+          "median": 8.006632,
+          "mean": 8.0069368,
+          "min": 8.005288,
+          "max": 8.008828,
+          "sample_stddev": 0.0013631394646180155
+        },
+        "iperf_client_cpu_percent": {
+          "median": 22.824812896959024,
+          "mean": 21.348064564033372,
+          "min": 12.188442061947626,
+          "max": 25.883086825841882,
+          "sample_stddev": 5.284728309341291
+        },
+        "iperf_server_cpu_percent": {
+          "median": 9.44026701787418,
+          "mean": 9.018327268122333,
+          "min": 5.05904804391737,
+          "max": 10.764406763745038,
+          "sample_stddev": 2.290400194971028
+        },
+        "receiver_loss_percent": {
+          "median": 0,
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "sample_stddev": 0.0
+        },
+        "receiver_lost_packets": {
+          "median": 0,
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "sample_stddev": 0.0
+        },
+        "receiver_jitter_ms": {
+          "median": 0.2201041347553914,
+          "mean": 0.4514494193827077,
+          "min": 0.17362430420447209,
+          "max": 0.9145974684597336,
+          "sample_stddev": 0.3543755948651435
+        },
+        "guest_kernel_cpu_percent": {
+          "median": 2.8289473684210527,
+          "mean": 2.6321826330745735,
+          "min": 1.2048192771084338,
+          "max": 3.622693096377307,
+          "sample_stddev": 0.8833746176384719
+        },
+        "guest_steal_percent": {
+          "median": 0.0,
+          "mean": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "sample_stddev": 0.0
+        },
+        "argus_process_cpu_percent_of_one_vcpu": {
+          "median": 0.5922484747615762,
+          "mean": 0.4950268508295438,
+          "min": 0.29636496515637073,
+          "max": 0.6941023511428095,
+          "sample_stddev": 0.18545649561711058
+        },
+        "argus_rss_kib_after": {
+          "median": 32284,
+          "mean": 33046.4,
+          "min": 32228,
+          "max": 34324,
+          "sample_stddev": 1091.419625991763
+        }
+      },
+      "overhead": {
+        "receiver_mbps": {
+          "percent_difference_of_medians": -0.059260584816387414,
+          "paired_percent_differences": {
+            "median": -0.041217232453275396,
+            "mean": -0.07005461309662114,
+            "min": -0.22699950604508085,
+            "max": 0.04402427087826445,
+            "sample_stddev": 0.11510324857454085
+          }
+        }
+      }
+    }
+  }
+}

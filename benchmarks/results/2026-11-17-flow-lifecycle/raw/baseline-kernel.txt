@@ -1,0 +1,69 @@
+(1/32) Installing brotli-libs (1.1.1-r0)
+(2/32) Installing c-ares (1.34.9-r0)
+(3/32) Installing libunistring (1.3-r0)
+(4/32) Installing libidn2 (2.3.7-r0)
+(5/32) Installing nghttp2-libs (1.69.0-r0)
+(6/32) Installing libpsl (0.21.5-r3)
+(7/32) Installing zstd-libs (1.5.7-r0)
+(8/32) Installing libcurl (8.14.1-r4)
+(9/32) Installing curl (8.14.1-r4)
+(10/32) Installing libmnl (1.0.5-r2)
+(11/32) Installing ethtool (6.14.1-r0)
+(12/32) Installing gdbm (1.24-r0)
+(13/32) Installing iperf3 (3.19.1-r0)
+(14/32) Installing libcap2 (2.78-r0)
+(15/32) Installing libelf (0.193-r0)
+(16/32) Installing iproute2-minimal (6.15.0-r0)
+(17/32) Installing libbz2 (1.0.8-r6)
+(18/32) Installing libcap-getcap (2.78-r0)
+(19/32) Installing libcap-setcap (2.78-r0)
+(20/32) Installing libcap-utils (2.78-r0)
+(21/32) Installing libexpat (2.10.0-r0)
+(22/32) Installing libffi (3.4.8-r0)
+(23/32) Installing libgcc (14.2.0-r6)
+(24/32) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+(25/32) Installing libncursesw (6.5_p20250503-r0)
+(26/32) Installing libpanelw (6.5_p20250503-r0)
+(27/32) Installing libstdc++ (14.2.0-r6)
+(28/32) Installing mpdecimal (4.0.1-r0)
+(29/32) Installing xz-libs (5.8.4-r0)
+(30/32) Installing readline (8.2.13-r1)
+(31/32) Installing sqlite-libs (3.49.2-r1)
+(32/32) Installing python3 (3.12.16-r0)
+Executing busybox-1.37.0-r20.trigger
+OK: 46 MiB in 48 packages
+=== RUN   TestKernelProtocolDetection
+=== RUN   TestKernelProtocolDetection/HTTP
+=== RUN   TestKernelProtocolDetection/HTTP_prefix_only
+=== RUN   TestKernelProtocolDetection/TLS
+=== RUN   TestKernelProtocolDetection/TLS_invalid_size
+=== RUN   TestKernelProtocolDetection/SSH
+=== RUN   TestKernelProtocolDetection/UDP_DNS
+=== RUN   TestKernelProtocolDetection/TCP_DNS
+=== RUN   TestKernelProtocolDetection/misleading_DNS_port
+=== RUN   TestKernelProtocolDetection/empty_DNS_TCP_packet
+=== RUN   TestKernelProtocolDetection/misleading_HTTPS_port
+=== RUN   TestKernelProtocolDetection/misleading_SSH_port
+=== RUN   TestKernelProtocolDetection/HTTP_bytes_over_UDP
+=== RUN   TestKernelProtocolDetection/padding_past_UDP_header_is_ignored
+--- PASS: TestKernelProtocolDetection (0.43s)
+    --- PASS: TestKernelProtocolDetection/HTTP (0.00s)
+    --- PASS: TestKernelProtocolDetection/HTTP_prefix_only (0.00s)
+    --- PASS: TestKernelProtocolDetection/TLS (0.00s)
+    --- PASS: TestKernelProtocolDetection/TLS_invalid_size (0.00s)
+    --- PASS: TestKernelProtocolDetection/SSH (0.00s)
+    --- PASS: TestKernelProtocolDetection/UDP_DNS (0.00s)
+    --- PASS: TestKernelProtocolDetection/TCP_DNS (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_DNS_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/empty_DNS_TCP_packet (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_HTTPS_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/misleading_SSH_port (0.00s)
+    --- PASS: TestKernelProtocolDetection/HTTP_bytes_over_UDP (0.00s)
+    --- PASS: TestKernelProtocolDetection/padding_past_UDP_header_is_ignored (0.00s)
+=== RUN   TestKernelFlowMapCapacity
+--- PASS: TestKernelFlowMapCapacity (0.04s)
+=== RUN   TestKernelTCXLifecycle
+time="2026-11-17T08:33:15Z" level=info msg="Attached ingress and egress TCX programs" interface=probe0
+--- PASS: TestKernelTCXLifecycle (0.08s)
+PASS
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>

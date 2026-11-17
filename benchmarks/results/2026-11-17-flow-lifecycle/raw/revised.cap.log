@@ -1,0 +1,6 @@
+CapEff:	0000008000001000
+{"interface":"probe0","level":"info","msg":"Argus network observer starting","time":"2026-11-17T11:33:26.868331008Z","version":"79a7581"}
+{"interface":"probe0","level":"info","msg":"Attached ingress and egress TCX programs","time":"2026-11-17T11:33:27.464155008Z"}
+{"collect_interval":2000000000,"interface":"probe0","level":"info","metrics_addr":"127.0.0.1:9090","msg":"Argus agent running","time":"2026-11-17T11:33:27.479879008Z"}
+{"addr":{"IP":"127.0.0.1","Port":9090,"Zone":""},"level":"info","msg":"HTTP server listening","time":"2026-11-17T11:33:27.50021Z"}
+{"level":"info","msg":"Argus agent stopped gracefully","time":"2026-11-17T11:33:28.027157008Z"}

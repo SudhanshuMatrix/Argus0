@@ -82,3 +82,16 @@ The collector benchmark uses 1,000, 10,000 and 100,000 distinct synthetic tuples
 ARGUS_BPF_TEST=1 ./bin/collector-kernel.test -test.run '^$' -test.bench '^BenchmarkKernelReadMap$' \
   -test.benchmem -test.benchtime=3x -test.count=3
 ```
+
+## Capability check
+
+Inside the disposable Linux environment, run the standalone agent with a reduced capability bounding set in the test namespace. This checks kernel and compiled-object behavior independently of runtime seccomp.
+
+```sh
+drop=$(capsh --print | awk -F= '/^Bounding set/ {print $2}' | tr ',' '\n' |
+  grep -vE '^cap_(bpf|net_admin)$' | paste -sd, -)
+ip netns exec "$test_ns" capsh --shell=/bin/sh --drop="$drop" -- -c \
+  'grep "^CapEff" /proc/self/status; exec ./bin/argus --interface probe0'
+```
+
+From another shell in the guest, probe `/readyz` through that namespace, then terminate the agent and confirm its TCX links have closed. The guest check uses root to create and remove the isolated namespace. The standalone agent's effective capability set in this test is `0000008000001000`.

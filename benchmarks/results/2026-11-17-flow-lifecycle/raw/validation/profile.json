@@ -1,0 +1,122 @@
+{
+  "before": {
+    "ingress": [
+      {
+        "id": 155,
+        "name": "tc_ingress",
+        "link_id": 89,
+        "run_count": 0,
+        "runtime_ns": 0
+      }
+    ],
+    "egress": [
+      {
+        "id": 156,
+        "name": "tc_egress",
+        "link_id": 90,
+        "run_count": 0,
+        "runtime_ns": 0
+      }
+    ],
+    "maps": [
+      {
+        "id": 627,
+        "name": "observations",
+        "max_entries": 7,
+        "key_bytes": 4,
+        "value_bytes": 16,
+        "fdinfo_memlock_bytes": 544
+      },
+      {
+        "id": 629,
+        "name": "flow_maps",
+        "max_entries": 1,
+        "key_bytes": 4,
+        "value_bytes": 4,
+        "fdinfo_memlock_bytes": 272
+      },
+      {
+        "id": 631,
+        "name": "flow_map",
+        "max_entries": 1000,
+        "key_bytes": 16,
+        "value_bytes": 56,
+        "fdinfo_memlock_bytes": 137600
+      },
+      {
+        "id": 630,
+        "name": "flow_update_fai",
+        "max_entries": 1,
+        "key_bytes": 4,
+        "value_bytes": 8,
+        "fdinfo_memlock_bytes": 288
+      }
+    ]
+  },
+  "after": {
+    "ingress": [
+      {
+        "id": 155,
+        "name": "tc_ingress",
+        "link_id": 89,
+        "run_count": 16,
+        "runtime_ns": 725024
+      }
+    ],
+    "egress": [
+      {
+        "id": 156,
+        "name": "tc_egress",
+        "link_id": 90,
+        "run_count": 5229,
+        "runtime_ns": 76403296
+      }
+    ],
+    "maps": [
+      {
+        "id": 627,
+        "name": "observations",
+        "max_entries": 7,
+        "key_bytes": 4,
+        "value_bytes": 16,
+        "fdinfo_memlock_bytes": 544
+      },
+      {
+        "id": 629,
+        "name": "flow_maps",
+        "max_entries": 1,
+        "key_bytes": 4,
+        "value_bytes": 4,
+        "fdinfo_memlock_bytes": 272
+      },
+      {
+        "id": 636,
+        "name": "flow_map",
+        "max_entries": 1000,
+        "key_bytes": 16,
+        "value_bytes": 56,
+        "fdinfo_memlock_bytes": 137600
+      },
+      {
+        "id": 630,
+        "name": "flow_update_fai",
+        "max_entries": 1,
+        "key_bytes": 4,
+        "value_bytes": 8,
+        "fdinfo_memlock_bytes": 288
+      }
+    ]
+  },
+  "deltas": {
+    "ingress": {
+      "invocations": 16,
+      "runtime_ns": 725024,
+      "ns_per_invocation": 45314.0
+    },
+    "egress": {
+      "invocations": 5229,
+      "runtime_ns": 76403296,
+      "ns_per_invocation": 14611.454580225665
+    }
+  }
+}

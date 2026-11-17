@@ -1,0 +1,20 @@
+?   	github.com/sudhanshu-singh/argus/cmd/network-observer	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/api	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/bpf	[no test files]
+=== RUN   TestBuildFlow
+--- PASS: TestBuildFlow (0.00s)
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/collector	(cached)
+?   	github.com/sudhanshu-singh/argus/internal/config	[no test files]
+?   	github.com/sudhanshu-singh/argus/internal/enricher	[no test files]
+=== RUN   TestCumulativeSnapshotAccounting
+--- PASS: TestCumulativeSnapshotAccounting (0.00s)
+=== RUN   TestConcurrentExportAndScrape
+--- PASS: TestConcurrentExportAndScrape (0.00s)
+=== RUN   TestHTTPServerLifecycle
+--- PASS: TestHTTPServerLifecycle (0.00s)
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/exporter	0.461s
+testing: warning: no tests to run
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/store	(cached) [no tests to run]

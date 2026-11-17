@@ -1,0 +1,6 @@
+{"interface":"argus0","level":"info","msg":"Argus network observer starting","time":"2026-11-17T11:36:18.292457008Z","version":"79a7581"}
+{"interface":"argus0","level":"info","msg":"Attached ingress and egress TCX programs","time":"2026-11-17T11:36:18.55404Z"}
+{"collect_interval":2000000000,"interface":"argus0","level":"info","metrics_addr":"127.0.0.1:19090","msg":"Argus agent running","time":"2026-11-17T11:36:18.566741008Z"}
+{"duration":12585008,"error":"context canceled","level":"warning","msg":"Flow collection failed","stage":"read_flows","time":"2026-11-17T11:36:18.583383008Z"}
+{"count":0,"duration_ns":2378992,"flow_update_failures":0,"level":"debug","msg":"Published BPF flow snapshot","time":"2026-11-17T11:36:18.595903008Z"}
+argus: fatal error: HTTP server: listen tcp 127.0.0.1:19090: bind: address already in use

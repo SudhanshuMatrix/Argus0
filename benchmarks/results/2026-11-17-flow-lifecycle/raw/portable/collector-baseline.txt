@@ -1,0 +1,21 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/sudhanshu-singh/argus/internal/collector
+cpu: Apple M2
+BenchmarkLegacyCollectAndPublish/1000-8         	    2180	    259350 ns/op	  482464 B/op	    2014 allocs/op
+BenchmarkLegacyCollectAndPublish/1000-8         	    2444	    245121 ns/op	  482443 B/op	    2014 allocs/op
+BenchmarkLegacyCollectAndPublish/1000-8         	    2444	    318705 ns/op	  482443 B/op	    2014 allocs/op
+BenchmarkLegacyCollectAndPublish/1000-8         	    2412	    246469 ns/op	  482447 B/op	    2014 allocs/op
+BenchmarkLegacyCollectAndPublish/1000-8         	    2352	    242290 ns/op	  482451 B/op	    2014 allocs/op
+BenchmarkLegacyCollectAndPublish/10000-8        	     212	   2798254 ns/op	 8388565 B/op	   20022 allocs/op
+BenchmarkLegacyCollectAndPublish/10000-8        	     213	   2779156 ns/op	 8388465 B/op	   20022 allocs/op
+BenchmarkLegacyCollectAndPublish/10000-8        	     211	   2763552 ns/op	 8388618 B/op	   20022 allocs/op
+BenchmarkLegacyCollectAndPublish/10000-8        	     214	   2792416 ns/op	 8388390 B/op	   20022 allocs/op
+BenchmarkLegacyCollectAndPublish/10000-8        	     213	   2738344 ns/op	 8388463 B/op	   20022 allocs/op
+BenchmarkLegacyCollectAndPublish/100000-8       	      15	  36428994 ns/op	100119050 B/op	  200067 allocs/op
+BenchmarkLegacyCollectAndPublish/100000-8       	      15	  35609419 ns/op	100119057 B/op	  200067 allocs/op
+BenchmarkLegacyCollectAndPublish/100000-8       	      15	  35543256 ns/op	100119057 B/op	  200067 allocs/op
+BenchmarkLegacyCollectAndPublish/100000-8       	      15	  36710453 ns/op	100119050 B/op	  200067 allocs/op
+BenchmarkLegacyCollectAndPublish/100000-8       	      15	  36340106 ns/op	100119050 B/op	  200067 allocs/op
+PASS
+ok  	github.com/sudhanshu-singh/argus/internal/collector	14.338s
