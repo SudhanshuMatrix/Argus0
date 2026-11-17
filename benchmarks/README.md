@@ -72,7 +72,7 @@ The suite drives more than ten times the configured capacity through successive 
 Run userspace benchmarks separately from network traffic and race testing.
 
 ```sh
-go test -run '^$' -bench 'Benchmark(CollectAndPublish|ComputeStats|FlowPage|ExportSnapshots)$' \
+go test -run '^$' -bench 'Benchmark(CollectAndPublish|ComputeStats|ServeFlows|Page|Publish|ExportSnapshots)$' \
   -benchmem -benchtime=500ms -count=5 ./internal/collector ./internal/store ./internal/api ./internal/exporter
 ```
 

@@ -56,7 +56,7 @@ func inspectProgram(attached link.AttachedProgram, maps map[ebpf.MapID]bool) (pr
 	}
 	id, _ := attached.LinkID()
 	observed := program{ID: attached.ID, Name: info.Name, LinkID: id}
-	if stats, err := p.Stats(); err == nil && stats.RunCount != 0 {
+	if stats, err := p.Stats(); err == nil {
 		observed.RunCount = &stats.RunCount
 		ns := stats.Runtime.Nanoseconds()
 		observed.RuntimeNS = &ns
