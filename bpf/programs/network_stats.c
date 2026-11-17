@@ -78,7 +78,8 @@ static __always_inline void record_detail_failure(void)
         __sync_fetch_and_add(failures, 1);
 }
 
-static __always_inline __u8 detect_l7(struct __sk_buff *skb, const struct flow_key_t *key,
+/* Keep classifier spills separate from the flow map pointer. */
+static __noinline __u8 detect_l7(struct __sk_buff *skb, const struct flow_key_t *key,
                                       __u32 offset, __u32 length)
 {
     __u8 prefix[4];
