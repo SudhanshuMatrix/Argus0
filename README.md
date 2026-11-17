@@ -1,6 +1,26 @@
+<p align="center">
+  <img src="internal/api/assets/logo.png" alt="Argus Logo" width="220">
+</p>
+
 # Argus
 
 Argus observes directional IPv4 TCP and UDP tuples at TCX ingress and egress on one Linux interface. It reports traffic counters through Prometheus and publishes recent flow details in a web dashboard.
+
+## Visual Diagnostics Dashboard
+
+These screenshots show an earlier dashboard with process and latency fields.
+
+### Overview Console
+
+<p align="center">
+  <img src="dashboard_screenshot_1.png" alt="Argus Diagnostics UI - Overview Console" width="100%">
+</p>
+
+### Stream Inspection Console
+
+<p align="center">
+  <img src="dashboard_screenshot_2.png" alt="Argus Diagnostics UI - Stream Inspection Console" width="100%">
+</p>
 
 ## Run locally
 
