@@ -8,7 +8,7 @@ Argus observes directional IPv4 TCP and UDP tuples at TCX ingress and egress on 
 
 ## Visual Diagnostics Dashboard
 
-The screenshots show the current dashboard with sample traffic data.
+Light-mode screenshots with sample traffic and the original Plus Jakarta Sans and JetBrains Mono typefaces.
 
 ### Traffic overview
 
