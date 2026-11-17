@@ -120,9 +120,12 @@ func (e *ProcessEnricher) lookupProc(pid uint32) (ProcessInfo, error) {
 // if one is found in the path. Returns an empty string + error if not found.
 //
 // Cgroup v1 example line:
-//   12:devices:/docker/3f4c2b1a9e7d...64chars.../
+//
+//	12:devices:/docker/3f4c2b1a9e7d...64chars.../
+//
 // Cgroup v2 example line (unified hierarchy):
-//   0::/system.slice/docker-3f4c2b1a9e7d...64chars....scope
+//
+//	0::/system.slice/docker-3f4c2b1a9e7d...64chars....scope
 func extractContainerID(cgroupPath string) (string, error) {
 	file, err := os.Open(cgroupPath)
 	if err != nil {

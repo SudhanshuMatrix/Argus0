@@ -1,10 +1,17 @@
 // Package exporter publishes collected flow data.
 package exporter
 
-import "github.com/sudhanshu-singh/argus/internal/store"
+import "time"
 
-// Exporter receives complete cumulative flow snapshots and the cumulative
-// count of packets the BPF flow map could not account for.
-type Exporter interface {
-	Export(flows []store.Flow, updateFailures uint64)
+// CollectionResult reports one sampling attempt. An empty ErrorStage indicates
+// that the collection successfully reached the store.
+type CollectionResult struct {
+	ErrorStage string
+	Duration   time.Duration
+	MapRead    time.Duration
+	Lag        time.Duration
+	Published  time.Time
+	Overrun    bool
+	Discarded  bool
+	Final      bool
 }

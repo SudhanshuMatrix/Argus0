@@ -6,11 +6,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sudhanshu-singh/argus/internal/bpf"
 	"github.com/sudhanshu-singh/argus/internal/store"
 )
 
@@ -172,6 +174,24 @@ func TestHTTPServerLifecycle(t *testing.T) {
 			t.Errorf("%s returned %d, want %d", request.path, resp.StatusCode, request.status)
 		}
 	}
+	for _, request := range []struct {
+		method string
+		body   string
+		status int
+	}{{http.MethodPost, "", 405}, {http.MethodGet, "unexpected", 400}} {
+		req, err := http.NewRequest(request.method, fmt.Sprintf("http://%s/extra", ln.Addr()), strings.NewReader(request.body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != request.status {
+			t.Errorf("%s with %q body returned %d, want %d", request.method, request.body, resp.StatusCode, request.status)
+		}
+	}
 	client.CloseIdleConnections()
 	cancel()
 	select {
@@ -203,5 +223,64 @@ func BenchmarkExportSnapshots(b *testing.B) {
 				exp.Export(flows, 0)
 			}
 		})
+	}
+}
+
+func TestSealedGenerationsAndAggregateObservations(t *testing.T) {
+	exp := newExporter(t)
+	exp.SetMapCapacity(1)
+	f := store.Flow{Protocol: "TCP", SrcPort: 9000, BytesIngress: 40, PktsIngress: 1}
+	var observations bpf.ObservationTotals
+	observations.TCP[0].Bytes, observations.TCP[0].Packets = 100, 2
+	exp.PublishGeneration(1, []store.Flow{f}, observations, 1)
+	exp.PublishGeneration(1, nil, bpf.ObservationTotals{}, 0)
+
+	// A discarded generation creates a gap in detail and leaves aggregate
+	// accounting intact.
+	exp.RecordCollection(CollectionResult{
+		ErrorStage: "read_flows", Duration: 2 * time.Second, Overrun: true, Discarded: true,
+	})
+	f.L7Protocol = "TLS"
+	observations.TCP[0].Bytes, observations.TCP[0].Packets = 300, 6
+	observations.Malformed, observations.Unsupported = 2, 3
+	observations.AccountingFailures = 1
+	exp.PublishGeneration(3, []store.Flow{f}, observations, 4)
+	exp.RecordCollection(CollectionResult{Duration: time.Millisecond, Published: time.Now()})
+	verifyMetrics(t, exp,
+		expectation{"network_bytes_total", "unknown", "ingress", 40},
+		expectation{"network_bytes_total", "TLS", "ingress", 40},
+		expectation{"network_active_connections", "unknown", "", 0},
+		expectation{"network_active_connections", "TLS", "", 1},
+		expectation{"network_flow_map_capacity", "", "", 1},
+		expectation{"network_flow_update_failures_total", "", "", 4},
+		expectation{"network_observation_accounting_failures_total", "", "", 1},
+		expectation{"network_collection_overruns_total", "", "", 1},
+		expectation{"network_flow_generations_discarded_total", "", "", 1},
+	)
+
+	families, err := exp.registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, family := range families {
+		if family.GetName() != "network_observed_bytes_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			labels := map[string]string{}
+			for _, label := range metric.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+			if labels["protocol"] == "TCP" && labels["direction"] == "ingress" {
+				found++
+				if got := metric.GetCounter().GetValue(); got != 300 || len(labels) != 3 {
+					t.Errorf("TCP ingress observation count = %v with labels %v", got, labels)
+				}
+			}
+		}
+	}
+	if found != 1 {
+		t.Errorf("expected one TCP ingress observation sample, found %d", found)
 	}
 }

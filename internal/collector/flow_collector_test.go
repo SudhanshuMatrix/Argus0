@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sudhanshu-singh/argus/internal/bpf"
+	"github.com/sudhanshu-singh/argus/internal/store"
 )
 
 func TestBuildFlow(t *testing.T) {
@@ -16,13 +17,20 @@ func TestBuildFlow(t *testing.T) {
 		DstPort:  binary.NativeEndian.Uint16([]byte{0, 53}),
 		Protocol: 17,
 	}
-	flow := buildFlow(key, bpf.FlowMetrics{
+	clock := flowClock{wall: time.Now(), monoNS: 5000001, recent: 3 * time.Millisecond}
+	metrics := bpf.FlowMetrics{
 		PktsEgress: 1 << 33, FirstSeenNs: 1, LastSeenNs: 2500001, L7Proto: 3,
-	}, time.Now())
-	if flow.SrcIP != "198.18.0.1" || flow.DstIP != "198.18.0.2" ||
+	}
+	flow := buildFlow(key, metrics, clock)
+	if flow.SrcIP != (store.IPv4{198, 18, 0, 1}) || flow.DstIP != (store.IPv4{198, 18, 0, 2}) ||
 		flow.SrcPort != 49153 || flow.DstPort != 53 || flow.Protocol != "UDP" ||
 		flow.L7Protocol != "DNS" || flow.PktsEgress != 1<<33 ||
-		flow.DurationMs != 2.5 || flow.LatencyMs != 0 || flow.PID != 0 {
+		flow.DurationMs != 2.5 || flow.LatencyMs != 0 || flow.PID != 0 ||
+		!flow.LastSeen.Equal(clock.wall.Add(-2500*time.Microsecond)) || !flow.Recent {
 		t.Fatalf("incorrect decoded flow: %+v", flow)
+	}
+	clock.monoNS += 4 * uint64(time.Millisecond)
+	if buildFlow(key, metrics, clock).Recent {
+		t.Fatal("idle tuple marked recent")
 	}
 }

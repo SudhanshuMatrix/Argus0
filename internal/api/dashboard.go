@@ -36,7 +36,7 @@ func (h *Handler) RegisterDashboardRoute(mux *http.ServeMux) {
 
 	// Serve logo.png
 	mux.HandleFunc("/logo.png", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(logoBytes)
 	})
 }

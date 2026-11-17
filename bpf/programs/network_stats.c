@@ -9,20 +9,74 @@
 #define MATCH4(bytes, text) ((bytes)[0] == (text)[0] && (bytes)[1] == (text)[1] && \
                              (bytes)[2] == (text)[2] && (bytes)[3] == (text)[3])
 
-struct {
+struct flow_map_def {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 100000);
     __type(key, struct flow_key_t);
     __type(value, struct flow_metrics_t);
-} flow_map SEC(".maps");
+} flow_template SEC(".maps"); /* Keep the inner key and value in the object BTF. */
 
-/* Counts packets we tried to account for but could not insert or update. */
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __array(values, struct flow_map_def);
+} flow_maps SEC(".maps");
+
+struct observation_t {
+    __u64 bytes;
+    __u64 packets;
+};
+
+enum {
+    TCP_INGRESS,
+    TCP_EGRESS,
+    UDP_INGRESS,
+    UDP_EGRESS,
+    MALFORMED,
+    UNSUPPORTED,
+    ACCOUNTING_FAILURE,
+    OBSERVATION_SLOTS,
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, OBSERVATION_SLOTS);
+    __type(key, __u32);
+    __type(value, struct observation_t);
+} observations SEC(".maps");
+
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(max_entries, 1);
     __type(key, __u32);
     __type(value, __u64);
 } flow_update_failures SEC(".maps");
+
+static __always_inline bool account(__u32 slot, __u64 bytes)
+{
+    struct observation_t *count = bpf_map_lookup_elem(&observations, &slot);
+    if (!count)
+        return false;
+
+    __sync_fetch_and_add(&count->bytes, bytes);
+    __sync_fetch_and_add(&count->packets, 1);
+    return true;
+}
+
+static __always_inline int skip(__u32 reason)
+{
+    account(reason, 0);
+    return ARGUS_TCX_NEXT;
+}
+
+static __always_inline void record_detail_failure(void)
+{
+    __u32 zero = 0;
+    __u64 *failures = bpf_map_lookup_elem(&flow_update_failures, &zero);
+    if (failures)
+        __sync_fetch_and_add(failures, 1);
+}
 
 static __always_inline __u8 detect_l7(struct __sk_buff *skb, const struct flow_key_t *key,
                                       __u32 offset, __u32 length)
@@ -88,7 +142,14 @@ static __always_inline __u8 detect_l7(struct __sk_buff *skb, const struct flow_k
 static __always_inline void update_flow(struct __sk_buff *skb, struct flow_key_t *key,
                                         __u32 payload, __u32 length, bool ingress)
 {
-    struct flow_metrics_t *metrics = bpf_map_lookup_elem(&flow_map, key);
+    __u32 zero = 0;
+    void *active = bpf_map_lookup_elem(&flow_maps, &zero);
+    if (!active) {
+        record_detail_failure();
+        return;
+    }
+
+    struct flow_metrics_t *metrics = bpf_map_lookup_elem(active, key);
     __u64 now = bpf_ktime_get_ns();
     if (!metrics) {
         struct flow_metrics_t initial = {
@@ -104,16 +165,13 @@ static __always_inline void update_flow(struct __sk_buff *skb, struct flow_key_t
             initial.pkts_egress = 1;
         }
 
-        if (bpf_map_update_elem(&flow_map, key, &initial, BPF_NOEXIST) == 0)
+        if (bpf_map_update_elem(active, key, &initial, BPF_NOEXIST) == 0)
             return;
 
         /* Another CPU may have inserted the flow first. Preserve its counts. */
-        metrics = bpf_map_lookup_elem(&flow_map, key);
+        metrics = bpf_map_lookup_elem(active, key);
         if (!metrics) {
-            __u32 zero = 0;
-            __u64 *failures = bpf_map_lookup_elem(&flow_update_failures, &zero);
-            if (failures)
-                __sync_fetch_and_add(failures, 1);
+            record_detail_failure();
             return;
         }
     }
@@ -128,10 +186,18 @@ static __always_inline void update_flow(struct __sk_buff *skb, struct flow_key_t
     if (metrics->l7_proto == L7_UNKNOWN) {
         __u8 detected = detect_l7(skb, key, payload, length);
         if (detected != L7_UNKNOWN)
-            metrics->l7_proto = detected;
+            __sync_val_compare_and_swap(&metrics->l7_proto, L7_UNKNOWN, detected);
     }
-    if (now > metrics->last_seen_ns)
-        metrics->last_seen_ns = now;
+
+    /* Concurrent updates may win, but last seen never moves backwards. */
+    __u64 seen = metrics->last_seen_ns;
+#pragma unroll
+    for (int attempt = 0; attempt < 4 && now > seen; attempt++) {
+        __u64 previous = __sync_val_compare_and_swap(&metrics->last_seen_ns, seen, now);
+        if (previous == seen)
+            break;
+        seen = previous;
+    }
 }
 
 static __always_inline int observe(struct __sk_buff *skb, bool ingress)
@@ -139,17 +205,21 @@ static __always_inline int observe(struct __sk_buff *skb, bool ingress)
     const __u32 ethernet_length = sizeof(struct ethhdr);
     struct ethhdr eth;
     struct iphdr ip;
-    if (bpf_skb_load_bytes(skb, 0, &eth, sizeof(eth)) < 0 ||
-        eth.h_proto != bpf_htons(ETH_P_IP) ||
-        bpf_skb_load_bytes(skb, ethernet_length, &ip, sizeof(ip)) < 0)
-        return ARGUS_TCX_NEXT;
+    if (bpf_skb_load_bytes(skb, 0, &eth, sizeof(eth)) < 0)
+        return skip(MALFORMED);
+    if (eth.h_proto != bpf_htons(ETH_P_IP))
+        return skip(UNSUPPORTED);
+    if (bpf_skb_load_bytes(skb, ethernet_length, &ip, sizeof(ip)) < 0)
+        return skip(MALFORMED);
 
-    __u32 ip_header_length = ip.ihl * 4;
+    __u8 version_ihl = *(const __u8 *)&ip;
+    __u32 ip_header_length = (version_ihl & 0x0f) * 4;
     __u32 ip_length = bpf_ntohs(ip.tot_len);
-    if (ip.version != 4 || ip_header_length < sizeof(ip) ||
-        ip_length < ip_header_length || ethernet_length + ip_length > skb->len ||
-        (ip.frag_off & bpf_htons(0x3fff)))
-        return ARGUS_TCX_NEXT;
+    if (version_ihl >> 4 != 4 || ip_header_length < sizeof(ip) ||
+        ip_length < ip_header_length || ethernet_length + ip_length > skb->len)
+        return skip(MALFORMED);
+    if (ip.frag_off & bpf_htons(0x3fff))
+        return skip(UNSUPPORTED);
 
     __u32 l4_offset = ethernet_length + ip_header_length;
     __u32 l4_length = ip_length - ip_header_length;
@@ -163,28 +233,31 @@ static __always_inline int observe(struct __sk_buff *skb, bool ingress)
         struct tcphdr tcp;
         if (l4_length < sizeof(tcp) ||
             bpf_skb_load_bytes(skb, l4_offset, &tcp, sizeof(tcp)) < 0)
-            return ARGUS_TCX_NEXT;
-        header_length = tcp.doff * 4;
+            return skip(MALFORMED);
+        header_length = (((const __u8 *)&tcp)[12] >> 4) * 4;
         if (header_length < sizeof(tcp) || header_length > l4_length)
-            return ARGUS_TCX_NEXT;
+            return skip(MALFORMED);
         key.src_port = tcp.source;
         key.dst_port = tcp.dest;
     } else if (ip.protocol == PROTO_UDP) {
         struct udphdr udp;
         if (l4_length < sizeof(udp) ||
             bpf_skb_load_bytes(skb, l4_offset, &udp, sizeof(udp)) < 0)
-            return ARGUS_TCX_NEXT;
+            return skip(MALFORMED);
         __u32 udp_length = bpf_ntohs(udp.len);
         if (udp_length < sizeof(udp) || udp_length > l4_length)
-            return ARGUS_TCX_NEXT;
+            return skip(MALFORMED);
         l4_length = udp_length;
         header_length = sizeof(udp);
         key.src_port = udp.source;
         key.dst_port = udp.dest;
     } else {
-        return ARGUS_TCX_NEXT;
+        return skip(UNSUPPORTED);
     }
 
+    __u32 slot = ip.protocol == PROTO_TCP ? TCP_INGRESS : UDP_INGRESS;
+    if (!account(slot + !ingress, skb->len))
+        account(ACCOUNTING_FAILURE, 0);
     update_flow(skb, &key, l4_offset + header_length, l4_length - header_length, ingress);
     return ARGUS_TCX_NEXT;
 }

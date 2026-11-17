@@ -1,14 +1,15 @@
 module github.com/sudhanshu-singh/argus
 
-go 1.21.0
+go 1.25.0
 
-toolchain go1.22.5
+toolchain go1.27.4
 
 require (
-	github.com/cilium/ebpf v0.14.0
+	github.com/cilium/ebpf v0.22.0
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.19.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
+	golang.org/x/sys v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -18,7 +19,5 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.53.0 // indirect
 	github.com/prometheus/procfs v0.15.0 // indirect
-	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/sys v0.20.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )

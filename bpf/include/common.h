@@ -21,8 +21,8 @@ struct flow_metrics_t {
     __u64 pkts_egress;
     __u64 first_seen_ns;
     __u64 last_seen_ns;
-    __u8 l7_proto;
-    __u8 pad[7];
+    __u32 l7_proto;
+    __u32 pad;
 };
 
 #define PROTO_TCP 6

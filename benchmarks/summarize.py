@@ -102,6 +102,7 @@ def summarize(root):
         data[name] = case
     return {
         "trials": count,
+        "baseline": environment.get("baseline", {"condition": "detached"}),
         "repetitions_per_condition": repetitions,
         "source_revision": environment["source_revision"],
         "workloads": data,

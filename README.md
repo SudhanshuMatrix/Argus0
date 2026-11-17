@@ -1,248 +1,77 @@
-<p align="center">
-  <img src="internal/api/assets/logo.png" alt="Argus Logo" width="220px">
-</p>
+# Argus
 
-# Argus eBPF Kernel Network Observability & DPI Agent
+Argus observes directional IPv4 TCP and UDP tuples at TCX ingress and egress on one Linux interface. It reports traffic counters through Prometheus and publishes recent flow details in a web dashboard.
 
-<p align="center">
-  <a href="https://hub.docker.com/r/shudhanshusingh/argus">
-    <img src="https://img.shields.io/badge/Docker%20Hub-shudhanshusingh%2Fargus-blue?logo=docker" alt="Docker Hub Badge">
-  </a>
-  <img src="https://img.shields.io/badge/License-Apache%202.0-green?logo=apache" alt="License Badge">
-</p>
+## Run locally
 
-Argus monitors directional IPv4 TCP and UDP flows on a Linux network interface. It attaches eBPF programs to TCX ingress and egress, records per-flow counters, and exposes snapshots through Prometheus and a web dashboard.
+Use Linux 6.6 or newer with TCX support and permission to load BPF programs and attach them to the interface. Build with Go 1.25 or later. The release build uses Go 1.27.4 and the checked-in BPF objects.
 
-The classifier recognizes common HTTP, TLS handshake and SSH payload prefixes. DNS classification uses port 53 and checks the structure of the DNS header. Payload matching is limited to bytes available in a single socket buffer. It provides neither stream reassembly nor decryption. See the [kernel classifier](bpf/programs/network_stats.c) for the supported patterns.
-
-The flow map holds up to 100,000 directional tuples for the lifetime of the agent. Idle entries remain in the map and the API snapshot. The Prometheus active-flow gauge counts tuples whose counters advanced since the last successful collection. Once the map fills, existing flows continue to update and observation failures for new tuples increment `network_flow_update_failures_total`.
-
-The API leaves process ownership unset because TCX can run in a different task context from the socket owner. Flow duration is the elapsed time between the first and last observed packets in a directional tuple. It describes the observation span and can include idle periods or tuple reuse.
-
----
-
-## Visual Diagnostics Dashboard
-
-The dashboard displays flow snapshots, byte counts and L7 protocol labels. These screenshots illustrate an earlier interface that included process and latency fields.
-
-### Overview Console
-<p align="center">
-  <img src="dashboard_screenshot_1.png" alt="Argus Diagnostics UI - Overview Console" width="100%">
-</p>
-
-### Stream Inspection Console
-<p align="center">
-  <img src="dashboard_screenshot_2.png" alt="Argus Diagnostics UI - Stream Inspection Console" width="100%">
-</p>
-
----
-
-## Prometheus Telemetry Schema
-
-Counters account for changes between successful snapshots. When classification changes, subsequent increments use the new label and prior increments remain under the original label.
-
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `network_bytes_total` | Counter | `interface`, `protocol`, `l7_protocol`, `direction` | Monotonically increasing counter of bytes |
-| `network_packets_total` | Counter | `interface`, `protocol`, `l7_protocol`, `direction` | Monotonically increasing counter of packets |
-| `network_active_connections` | Gauge | `interface`, `protocol`, `l7_protocol` | Directional tuples with newly observed traffic since the previous collection |
-| `network_flow_map_entries` | Gauge | `interface` | Entries in the most recent successful collection |
-| `network_flow_update_failures_total` | Counter | `interface` | Packets whose flow update could not be recorded |
-
-Bytes count `skb->len` at the hook. Network offloads and hook placement can change the relationship between socket buffers and packets on a network link.
-
-### PromQL examples
-```promql
-# Graph Ingress TLS traffic throughput (bytes/sec)
-sum(rate(network_bytes_total{direction="ingress", l7_protocol="TLS"}[5m]))
-
-# Group observed TCP byte rates by application protocol
-sum by (l7_protocol) (rate(network_bytes_total{protocol="TCP"}[5m]))
-
-# Monitor active DNS connection gauges
-network_active_connections{l7_protocol="DNS"}
-```
-
----
-
-## Quick Start & Installation
-
-### Prerequisites
-
-- Linux with BPF and TCX support and permission to load BPF objects and attach TCX programs. TCX was introduced in Linux 6.6.
-- Go 1.21 or later. The module suggests Go 1.22.5.
-- For BPF source changes, install Clang with the BPF backend and libbpf headers. `make generate` uses the module's pinned bpf2go version.
-
-### 1. Build and Run
-```bash
-git clone https://github.com/SudhanshuMatrix/Argus0.git
-cd Argus0
-
-# Compile the Go agent binary
+```sh
 make build
-
-# Start the agent on your network interface (e.g., enp2s0 or eth0)
-sudo ./bin/argus --interface enp2s0
+sudo ./bin/argus --interface eth0
+curl -fsS http://127.0.0.1:9090/readyz
 ```
 
-### 2. Build and Run with Docker (Recommended)
-Docker and Docker Compose can build the agent using the checked-in BPF objects. Host-interface monitoring requires a Linux container host with TCX support and permission to attach to the named interface.
+Open [the dashboard](http://127.0.0.1:9090/) or scrape [the Prometheus endpoint](http://127.0.0.1:9090/metrics). The default listener accepts local connections only. For remote clients, keep Argus on loopback and terminate TLS and authentication at a reverse proxy on the host. Grant access to `/metrics` to the scraper and restrict dashboard and API access to authorized operators. An explicit non-loopback `listen_addr` makes all HTTP routes reachable there. Use it only where an external access control enforces that boundary.
 
-#### Option A: Docker Compose (Easiest)
-Make sure you have created your `.env` file from `.env.example` and set your active interface (`ARGUS_INTERFACE=eth0` or `ARGUS_INTERFACE=enp2s0`):
+### Containers
 
-```bash
-# Build the image and run the agent in the foreground
-sudo docker compose up --build
+Run Docker Compose on a Linux host that supports TCX. Set `ARGUS_INTERFACE` in the shell or copy and edit `.env.example`.
 
-# Run in the background (detached)
-sudo docker compose up -d --build
-
-# Stop the agent
-sudo docker compose down
+```sh
+docker compose up --build
 ```
 
-#### Option B: Docker CLI
-You can pull and run the pre-built image directly from Docker Hub:
+The Compose file and [Kubernetes DaemonSet](deploy/kubernetes/daemonset.yaml) use the host network with `BPF` and `NET_ADMIN` capabilities. Adjust `NODE_INTERFACE` for the DaemonSet and load `argus:local` onto each node or set the image to a trusted release image. Create the `monitoring` namespace before applying the manifest. For remote scraping, use an authenticated TLS proxy on each node. The manifest keeps the agent private and the kubelet probes loopback.
 
-```bash
-# Run the pre-built eBPF agent container from Docker Hub
-sudo docker run -d \
-  --name argus \
-  --privileged \
-  --network host \
-  --pid host \
-  -v /sys:/sys:ro \
-  -v /proc:/proc:ro \
-  -v $(pwd)/configs:/app/configs:ro \
-  -e ARGUS_INTERFACE=eth0 \
-  -p 9090:9090 \
-  --restart unless-stopped \
-  shudhanshusingh/argus:latest
+Kernel configuration, container runtime and seccomp policy determine whether these permissions suffice. Prefer a compatible runtime profile that allows the required BPF commands. Docker's `--privileged` mode is an explicit compatibility option for isolated test hosts. It grants extensive access to the host kernel and devices.
+
+### Configuration
+
+Settings are applied in order from built-in defaults, `configs/default.yaml` or the file passed with `--config`, then environment. For each variable, the process environment overrides `.env` in the working directory. `--interface` overrides the selected interface. An explicitly requested YAML file must exist. Unknown YAML fields and malformed durations are errors.
+
+| YAML setting | Environment | Default and bounds |
+| --- | --- | --- |
+| `agent.interface` | `ARGUS_INTERFACE`, legacy `INTERFACE` | `eth0`, Linux interface name |
+| `agent.collect_interval` | `ARGUS_COLLECT_INTERVAL` | `5s`, 100ms to 5m |
+| `agent.map_capacity` | `ARGUS_MAP_CAPACITY` | `100000`, 1 to 100,000 tuples per window |
+| `prometheus.listen_addr` | `ARGUS_LISTEN_ADDR`, legacy `PORT` | `127.0.0.1:9090`, explicit IP or `localhost` and port |
+| `logging.level` | `ARGUS_LOG_LEVEL` | `info` |
+| `logging.format` | `ARGUS_LOG_FORMAT` | `json` or `text` |
+
+The preferred variables take precedence over their aliases. `PORT` changes the port on IPv4 loopback. Replace legacy `:9090` binds with an explicit address, normally `127.0.0.1:9090`. `cache_ttl` and `ARGUS_CACHE_TTL` remain accepted for old configurations and have no runtime effect.
+
+## Flow details and health
+
+Each collection seals one flow window and opens a fresh bounded map. Flows with no new traffic age out at rotation. A row identifies a directional tuple within a collection window and includes its last-seen time and observation span. Tuple reuse within a window can share a row. Detail retention and L7 labels are best-effort. [Flow lifecycle and accounting design](docs/flow-lifecycle.md)
+
+- `GET /api/flows?limit=100&q=TCP` returns a deterministically ordered page. The default limit is 100 and the maximum is 1,000. Filter by exact IPv4 address, exact port, or transport/L7 label prefix. Pass `next_cursor` back with the same filter. Cursors retain their generation across one newer publication and return HTTP 410 after expiration. Malformed queries return HTTP 400 and oversized queries return HTTP 414. `generated_at` is the collection time.
+- `GET /api/stats` reports retained tuples, tuples with recent traffic, eligible observation totals, collection age, and traffic-rate history. Rate uses counter deltas and actual elapsed time. First sample, counter reset, failed collection, and the first sample after failure are gaps. A healthy idle interval reports zero bytes per second.
+- `GET /healthz` checks HTTP liveness. `GET /readyz` requires both TCX attachments and a successful collection within three collection intervals. Empty successful collections are healthy. Confirmed interface disappearance makes the agent unready.
+
+Argus labels recognizable HTTP, TLS handshake, SSH and DNS payloads from bytes available in one socket buffer. Flow ownership, RTT, and receiver packet loss are unavailable. Socket attribution, IPv6/VLAN coverage, and multiple interfaces are separate follow-ups.
+
+## Metrics
+
+| Metric | Source and meaning |
+| --- | --- |
+| `network_observed_bytes_total`, `network_observed_packets_total` | In-process cumulative eligible TCX observations, independent of detail admission and rotation. Labels are interface, transport protocol and direction. The API rate uses these counters. |
+| `network_bytes_total`, `network_packets_total` | Legacy snapshot-accounted detail totals by interface, transport, L7 label and direction. Each successful window adds its retained observations under its final classification. Earlier publications keep their original labels. Use observation counters for complete eligible traffic totals. |
+| `network_active_connections` | Retained tuples with observations in the latest successful window, by interface, transport and L7. The gauge describes directional tuples. |
+| `network_flow_map_entries`, `network_flow_map_capacity` | Last published occupied entries and configured capacity. |
+| `network_flow_update_failures_total` | Packet observations whose detail could not be retained. |
+| `network_observation_skips_total`, `network_observation_accounting_failures_total` | Unsupported or malformed hook observations and failures to account for an eligible observation. |
+| `network_collection_duration_seconds`, `network_collection_map_read_duration_seconds`, `network_collection_errors_total` | Collection and map-walk latency, and errors grouped by stage. |
+| `network_collection_last_success_timestamp_seconds`, `network_collection_lag_seconds`, `network_collection_overruns_total`, `network_flow_generations_discarded_total` | Publication time, scheduling delay, collection overruns, and sealed detail windows discarded after unsuccessful collection. |
+
+Bytes count `skb->len` and packets count hook observations. Kernel offloads, hook placement, and delivery beyond the hook affect comparison with receiver counts.
+
+```promql
+sum by (direction) (rate(network_observed_bytes_total[5m]))
 ```
 
-Alternatively, you can build and run it locally:
-```bash
-# Build the image locally
-docker build -t argus:latest .
+## Validation and performance
 
-# Run the local image
-sudo docker run -d \
-  --name argus \
-  --privileged \
-  --network host \
-  --pid host \
-  -v /sys:/sys:ro \
-  -v /proc:/proc:ro \
-  -v $(pwd)/configs:/app/configs:ro \
-  -e ARGUS_INTERFACE=eth0 \
-  -p 9090:9090 \
-  --restart unless-stopped \
-  argus:latest
-```
+Run `make check-generated` to check both endian objects and Go bindings. `make generate-pinned` regenerates them with Zig 0.15.2, libbpf 1.5.0 headers, and the module's pinned bpf2go. Both commands verify downloaded archives and normalize debug paths. Building from the checked-in objects requires only Go.
 
-### 3. Access the Consoles
-*   **Web Diagnostics UI:** `http://localhost:9090`
-*   **Prometheus Metrics Endpoint:** `http://localhost:9090/metrics`
-
-### 4. Verify L7 Detection
-
-Send a plain HTTP request to a server you control across the monitored interface. After a collection interval, look for the directional tuple and its `HTTP` label in `/api/flows`. Enable trace logging if you need a JSON line for each sampled flow.
-
----
-
-## Benchmarks
-
-Argus completed 70 eight-second trials across 35 baseline/enabled pairs on a veth pair inside a software-emulated ARM64 Linux guest.
-
-| Workload | Observed result |
-|---|---|
-| TCP throughput | Median receiver throughput was 0.16% to 5.93% lower with Argus enabled. Baseline and enabled ranges overlapped in all four workloads. |
-| UDP at 5 and 20 Mbit/s | The receiver reported zero datagram loss in both conditions. |
-| HTTP latency | Median per-trial p99 was 55.77 ms detached and 56.85 ms attached. |
-| Flow-map capacity | The receiver got all 100,100 datagrams sent on distinct tuples. Argus recorded 100,000 observations and 100 map update failures. |
-| Ten-minute soak | The receiver reported zero datagram loss, and Argus reported zero map update failures. |
-
-These results describe the emulated test environment. See the [full report and raw evidence](benchmarks/results/2026-11-15-637ddfa/report.md) and [reproduction instructions](benchmarks/README.md).
-
----
-
-## Project Structure
-
-```
-argus/
-├── bpf/
-│   ├── include/
-│   │   ├── common.h          # Shared structs (flow_key_t, flow_metrics_t)
-│   │   └── vmlinux.h         # Relocatable kernel type mapping
-│   └── programs/
-│       └── network_stats.c   # eBPF C program (Ingress/Egress TC hooks + DPI Engine)
-├── cmd/
-│   └── network-observer/
-│       └── main.go           # Daemon entry point & YAML configuration parser
-├── configs/
-│   └── default.yaml          # Agent intervals & network server configs
-├── deploy/
-│   └── kubernetes/
-│       └── daemonset.yaml    # Kubernetes DaemonSet deployment spec
-├── internal/
-│   ├── bpf/
-│   │   └── loader.go         # TCX links and BPF map loader
-│   ├── collector/
-│   │   └── flow_collector.go # Map iterator, L7 name mapper, JSON formatter
-│   ├── config/
-│   │   └── config.go         # Struct configuration loader
-│   ├── enricher/
-│   │   └── process.go        # Thread-safe VFS /proc parser & PID cache
-│   └── exporter/
-│       ├── exporter.go       # Exporter interface
-│       └── prometheus.go     # Custom Prometheus Collector HTTP Server
-│   └── api/
-│       └── dashboard.html    # Interactive Glassmorphism Dashboard UI
-├── Makefile
-├── go.mod
-└── README.md
-```
-
----
-
-## Kubernetes Deployment Guide
-
-To observe network flows cluster-wide, Argus is deployed as a **DaemonSet** so that exactly one monitoring agent pod runs on every Linux node in your cluster.
-
-### 1. Required Privileges & Mounts
-Because eBPF interacts directly with host-level sockets, network interfaces, and kernel subsystems, the DaemonSet requires specific security privileges and host directory mounts:
-*   **`securityContext.privileged: true`** (or `CAP_BPF` + `CAP_NET_ADMIN` + `CAP_SYS_ADMIN` capabilities) to load Traffic Control links and access kernel rings.
-*   **Host Network (`hostNetwork: true`):** Runs the pod in the node's network namespace to attach hooks directly to host physical interfaces (like `eth0` or `bond0`).
-*   **Host `/sys/fs/bpf` Volume:** Mounts the host's BPF virtual filesystem so maps can be inspected or persisted.
-
-### 2. Deploying Argus
-Deploy the pre-configured DaemonSet and RBAC authorization resources to your cluster:
-```bash
-# Create the monitoring namespace
-kubectl create namespace monitoring
-
-# Apply the DaemonSet configurations
-kubectl apply -f deploy/kubernetes/daemonset.yaml
-```
-
-### 3. Verify the Deployment
-```bash
-# Verify pods are running on every cluster node
-kubectl get pods -n monitoring -l app=argus -o wide
-
-# Inspect the logs of an active agent pod
-kubectl logs -n monitoring -l app=argus --tail=100 -f
-```
-
----
-
-## eBPF Architecture Notes
-
-The current parser handles unfragmented IPv4 TCP and UDP over Ethernet. In-packet VLAN headers, IPv6 and fragmented packets are outside the accounting scope. The running agent holds TCX links and BPF maps through file descriptors. Closing the descriptors releases its references.
-
----
-
-## License
-
-Argus is licensed under the Apache 2.0 License.
+See the [release measurements](benchmarks/results/2026-11-17-flow-lifecycle/report.md), [benchmark instructions](benchmarks/README.md), and [historical ARM64 results](benchmarks/results/2026-11-15-637ddfa/report.md). Portable Go tests, Linux builds, and the explicitly gated TCX kernel tests cover different parts of the release.

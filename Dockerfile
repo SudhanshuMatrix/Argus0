@@ -1,45 +1,15 @@
-# ==============================================================================
-# Multi-Stage Build Dockerfile for Argus (eBPF Observability Agent)
-# ==============================================================================
-
-# --- STAGE 1: Builder ---
-FROM golang:1.22-bookworm AS builder
-
-# Set up working directory inside the build container
+FROM --platform=$BUILDPLATFORM golang:1.27.4-bookworm AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
-
-# Copy go.mod and go.sum to cache Go dependencies
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Copy the entire workspace code
 COPY . .
+RUN make build GOOS="$TARGETOS" GOARCH="$TARGETARCH"
 
-# Run the build target from the Makefile.
-RUN make build
-
-# --- STAGE 2: Runner ---
-# Use a lightweight, clean, slim Debian image for production execution
-FROM debian:bookworm-slim
-
-# Install basic network diagnostics tools for convenient debugging inside the container
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    iproute2 \
-    iputils-ping \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set standard workspace directory
+FROM scratch
 WORKDIR /app
-
-# Copy the statically compiled binary from the builder stage
 COPY --from=builder /src/bin/argus /app/argus
-
-# Copy the default configurations
-COPY --from=builder /src/configs /app/configs
-
-# Expose the default HTTP port for the web dashboard and Prometheus endpoint
+COPY configs/default.yaml /app/configs/default.yaml
 EXPOSE 9090
-
-# Set entrypoint to run the Argus binary
 ENTRYPOINT ["/app/argus"]

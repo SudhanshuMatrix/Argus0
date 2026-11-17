@@ -1,16 +1,18 @@
 """Exercise Argus recovery, flow capacity and separate profiling in an isolated veth pair."""
 import argparse
 import contextlib
+import concurrent.futures
 import json
 from pathlib import Path
 import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 from run import (
-    HTTP_LOAD, IFACE, SERVER, agent_config, curl, dump, listen_ready, nscmd,
+    HTTP_LOAD, IFACE, METRICS, SERVER, agent_config, curl, dump, listen_ready, nscmd,
     positive, proc_sample, process, run, topology, validate, wait_for,
 )
 
@@ -39,10 +41,11 @@ def agent(args, namespace, output, name):
     config = output / "agent.yaml"
     dump(output / f"{name}.detached-before.json", query(args.probe, namespace, 0))
     with process(nscmd(namespace, args.argus, "-config", config), log, require_success=True, isolated_agent=True) as child:
-        wait_for(child, lambda: curl(namespace, "/healthz") == "ok", "Argus")
+        wait_for(child, lambda: bool(curl(namespace, "/readyz")), "Argus")
         dump(output / f"{name}.attached.json", query(args.probe, namespace, 1))
         yield child, log
-    dump(output / f"{name}.detached-after.json", query(args.probe, namespace, 0))
+    if name != "interface-loss":
+        dump(output / f"{name}.detached-after.json", query(args.probe, namespace, 0))
 
 
 def await_metrics(namespace, test, timeout=60):
@@ -62,66 +65,102 @@ def new_flows(left, start, count, destination):
     ), timeout=120))
 
 
+def api_samples(namespace, path, stop):
+    samples = []
+    while not stop.is_set():
+        fields = run(*nscmd(namespace, "curl", "-fsS", "--max-time", "3", "-o", "/dev/null",
+                           "-w", "%{time_total} %{size_download}", METRICS + path)).split()
+        samples.append({"seconds": float(fields[0]), "bytes": int(fields[1])})
+        stop.wait(0.25)
+    return samples
+
+
+def last_collection(namespace):
+    return json.loads(curl(namespace, "/api/stats"))["stats"]["collected_at"]
+
+
+def await_collection(namespace, previous):
+    until = time.monotonic() + 10
+    while time.monotonic() < until:
+        at = last_collection(namespace)
+        if at != previous:
+            return at
+        time.sleep(0.05)
+    raise RuntimeError("collection did not publish")
+
+
 def scale(args, left, right, output):
     observations = []
+    capacity = args.map_capacity
+    batch = capacity * 9 // 10
     with contextlib.ExitStack() as stack:
-        receivers = []
-        for index in range(4):
-            tally = output / f"receiver-{index}.txt"
-            child = stack.enter_context(process(nscmd(
-                right, sys.executable, FLOW_LOAD, "receive", "--port", DESTINATION_PORT + index,
-                "--outfile", tally
-            ), output / f"receiver-{index}.log"))
-            wait_for(child, tally.is_file, "UDP receiver")
-            receivers.append(tally)
-        child, log = stack.enter_context(agent(args, left, output, "scale"))
-        previous = 0
-        for target in (100, 1000, 10000, 100100):
-            sent = []
-            while previous < target:
-                remaining = 30000 - previous % 30000
-                count = min(remaining, target - previous)
-                sent.append(new_flows(left, SRC_PORT + previous % 30000, count,
-                                      DESTINATION_PORT + previous // 30000))
-                previous += count
-            expected = min(100000, target)
-            failures = target - expected
-            text = await_metrics(left, lambda text: (
-                metric(text, "network_flow_map_entries") == expected
-                and metric(text, "network_packets_total", protocol="UDP", direction="egress") == expected
-                and metric(text, "network_flow_update_failures_total") == failures
-            ))
-            time.sleep(0.4)
-            collections = [json.loads(line) for line in log.read_text().splitlines()]
-            durations = [sample["duration_ns"] for sample in collections
-                         if sample.get("count") == expected and "duration_ns" in sample]
-            observations.append({
-                "sent_flows": target,
-                "sender_runs": sent,
-                "receiver_packets": sum(int(tally.read_text()) for tally in receivers),
-                "map_entries": expected,
-                "argus_udp_egress_packets": metric(text, "network_packets_total", protocol="UDP", direction="egress"),
-                "flow_update_failures": failures,
-                "collection_duration_ns": durations,
-                "process": proc_sample(child),
-            })
-            if target == 100:
-                snapshot = json.loads(curl(left, "/api/flows"))
-                if snapshot["count"] != expected or any(flow["pid"] for flow in snapshot["flows"]):
-                    raise RuntimeError("unexpected flow count or process attribution")
-                dump(output / "known-process-flows.json", {
-                    "sender_pid": sent[0]["sender_pid"],
-                    "reported_pids": sorted({flow["pid"] for flow in snapshot["flows"]}),
-                    "count": snapshot["count"],
-                })
-            dump(output / "flow-scale.json", observations)
-        text = await_metrics(left, lambda text: (
-            metric(text, "network_active_connections") == 0
-            and metric(text, "network_flow_map_entries") == 100000
-        ))
-        (output / "after-traffic-stopped.metrics").write_text(
-            "\n".join(line for line in text.splitlines() if line.startswith("network_")) + "\n"
-        )
+        tally = output / "receiver.txt"
+        receiver = stack.enter_context(process(nscmd(
+            right, sys.executable, FLOW_LOAD, "receive", "--port", DESTINATION_PORT,
+            "--outfile", tally
+        ), output / "receiver.log"))
+        wait_for(receiver, tally.is_file, "UDP receiver")
+        child, _ = stack.enter_context(agent(args, left, output, "scale"))
+        paths = ["/api/flows", "/api/stats", "/metrics"]
+        stop = threading.Event()
+        sent = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(paths)) as clients:
+            futures = {path: clients.submit(api_samples, left, path, stop) for path in paths}
+            try:
+                at = await_collection(left, last_collection(left))
+                for count in (batch,) * 12 + (capacity + 100,):
+                    result = new_flows(left, SRC_PORT + sent, count, DESTINATION_PORT)
+                    sent += count
+                    at = await_collection(left, at)
+                    expected = min(count, capacity)
+                    failures = count - expected
+                    text = curl(left, "/metrics")
+                    page = json.loads(curl(left, "/api/flows?limit=100"))
+                    sample = {
+                        "sent_in_window": result,
+                        "sent_total": sent,
+                        "received_total": int(tally.read_text()),
+                        "entries": metric(text, "network_flow_map_entries"),
+                        "eligible_udp_egress_packets": metric(
+                            text, "network_observed_packets_total", protocol="UDP", direction="egress"
+                        ),
+                        "detail_admission_failures": metric(text, "network_flow_update_failures_total"),
+                        "observation_accounting_failures": metric(
+                            text, "network_observation_accounting_failures_total"
+                        ),
+                        "page_rows": len(page["flows"]),
+                        "generated_at": page["generated_at"],
+                        "process": proc_sample(child),
+                    }
+                    observations.append(sample)
+                    dump(output / "churn.json", observations)
+                    if (sample["entries"] != expected or sample["eligible_udp_egress_packets"] != sent
+                            or sample["detail_admission_failures"] != failures
+                            or sample["observation_accounting_failures"]
+                            or sample["page_rows"] > 100 or any(row.get("pid") for row in page["flows"])):
+                        raise RuntimeError(f"unexpected flow accounting in window: {sample}")
+                await_collection(left, at)
+                idle = curl(left, "/metrics")
+                (output / "idle.metrics").write_text(idle)
+                if metric(idle, "network_flow_map_entries") or metric(idle, "network_active_connections"):
+                    raise RuntimeError("idle flow details outlived their window")
+                if int(tally.read_text()) > sent:
+                    raise RuntimeError("UDP receiver counted unexpected packets")
+                dump(output / "endpoint-loss.json", {"sent": sent, "received": int(tally.read_text())})
+            finally:
+                stop.set()
+        dump(output / "api-samples.json", {path: future.result() for path, future in futures.items()})
+
+
+def interface_disappearance(args, left, output):
+    with agent(args, left, output, "interface-loss") as (child, _):
+        run("ip", "-n", left, "link", "del", IFACE)
+        wait_for(child, lambda: run(*nscmd(left, "curl", "-sS", "-o", "/dev/null",
+                                          "-w", "%{http_code}", METRICS + "/readyz")) == "503",
+                 "readiness after interface disappearance")
+        if curl(left, "/healthz") != "ok":
+            raise RuntimeError("liveness failed after interface disappearance")
+        (output / "interface-loss.txt").write_text("readiness: 503\nliveness: 200\n")
 
 
 def bind_failure(args, left, output):
@@ -220,7 +259,9 @@ def main(args):
         "argus": str(args.argus), "output": str(output), "probe": str(args.probe),
         "versions": versions,
     })
-    agent_config(output / "agent.yaml", "2s", level="debug")
+    if not 100 <= args.map_capacity <= 3000:
+        raise ValueError("--map-capacity must be between 100 and 3000 for the isolated churn fixture")
+    agent_config(output / "agent.yaml", "2s", level="debug", capacity=args.map_capacity)
     with topology(output) as (left, right):
         scale(args, left, right, output)
         bind_failure(args, left, output)
@@ -229,6 +270,7 @@ def main(args):
             wait_for(server, lambda: listen_ready(right, 15201), "iperf3 server")
             profile(args, left, output)
             soak(args, left, output)
+        interface_disappearance(args, left, output)
     dump(output / "status.json", {"status": "ok"})
 
 
@@ -237,6 +279,7 @@ if __name__ == "__main__":
     parser.add_argument("--argus", type=lambda s: Path(s).resolve(), required=True)
     parser.add_argument("--probe", type=lambda s: Path(s).resolve(), required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--map-capacity", type=positive, default=1000)
     parser.add_argument("--soak-seconds", type=positive, default=3600)
     parser.add_argument("--profile-seconds", type=positive, default=10)
     parser.add_argument("--sample-interval", type=positive, default=10)

@@ -1,8 +1,8 @@
 # Argus validation benchmarks
 
-[ARM64 validation report and raw results](results/2026-11-15-637ddfa/report.md)
+[Release measurements](results/2026-11-17-flow-lifecycle/report.md) · [Historical ARM64 report](results/2026-11-15-637ddfa/report.md)
 
-The primary harness compares Argus detached with Argus attached. It creates a veth pair in two Linux network namespaces that have no external interface or default route. The client namespace has address `198.18.0.1/30`, and the server namespace has address `198.18.0.2/30`. Argus monitors the client side. Each enabled trial starts a new agent and an empty flow map.
+The primary harness compares Argus detached with Argus attached. Pass `--baseline-argus /path/to/original/argus --baseline-revision <revision>` to compare two attached versions instead. Use the same toolchain, guest and workload in both conditions. It creates a veth pair in two Linux network namespaces that have no external interface or default route. The client namespace has address `198.18.0.1/30`, and the server namespace has address `198.18.0.2/30`. Argus monitors the client side. Each enabled trial starts a new agent and an empty flow map.
 
 ## Build and check
 
@@ -32,9 +32,12 @@ ip -n "$test_ns" link set probe0 up
 ip -n "$test_ns" link set probe1 up
 ip netns exec "$test_ns" env ARGUS_BPF_TEST=1 ARGUS_TEST_INTERFACE=probe0 \
   ./bin/bpf-kernel.test -test.v
+CGO_ENABLED=0 go test -c -o bin/collector-kernel.test ./internal/collector
+ip netns exec "$test_ns" env ARGUS_BPF_TEST=1 \
+  ./bin/collector-kernel.test -test.run '^TestKernelBatchMatchesIterator$' -test.v
 ```
 
-The kernel tests execute the embedded programs on constructed Ethernet frames, force insertion into a full two-entry test map, and query both TCX hooks before load, after attach, and after close.
+The kernel suite exercises generated programs with Ethernet fixtures and checks TCX lifecycle. The collector suite compares batch and iterator walks against a real kernel map. A regular Go test run skips the privileged cases.
 
 ## Primary measurements
 
@@ -62,15 +65,20 @@ python3 benchmarks/validate.py --argus bin/argus --probe bin/bpfprobe \
   --output ./my-validation --profile-seconds 10 --soak-seconds 3600
 ```
 
-The suite generates unique UDP tuples up to the map limit and compares application receive counts with Argus observations and update failures. It queries live TCX links and map information, verifies detachment, checks shutdown on HTTP bind failure and checks that a restart begins with an empty map. The profile uses the change in BPF run-count and runtime counters for each program. The soak runs bounded UDP traffic, samples process RSS, checks for map accounting failures, and waits for the active-flow gauge to return to zero after traffic stops.
+The suite drives more than ten times the configured capacity through successive windows while requesting flow pages, stats, and scrapes in parallel. It fills a window separately and compares eligible observations, detail admission failures, and endpoint receives. The suite verifies quiet windows, detachment, HTTP bind failure, and readiness after interface disappearance. The profile uses the change in BPF run count and runtime for each program. The soak samples process RSS during bounded UDP traffic and checks that the active-flow gauge returns to zero after traffic stops.
 
 ## Go microbenchmarks
 
-Run the allocation benchmarks separately from race testing and network traffic:
+Run userspace benchmarks separately from network traffic and race testing.
 
 ```sh
-go test -run '^$' -bench '^Benchmark(ExportSnapshots|ComputeStats)$' -benchmem \
-  -benchtime=750ms -count=5 ./internal/exporter ./internal/store
+go test -run '^$' -bench 'Benchmark(CollectAndPublish|ComputeStats|FlowPage|ExportSnapshots)$' \
+  -benchmem -benchtime=500ms -count=5 ./internal/collector ./internal/store ./internal/api ./internal/exporter
 ```
 
-Both workloads use 100 and 10,000 synthetic flow records. The exporter benchmark publishes cumulative snapshots with advancing counters, including the fixture's in-place counter increments. The store benchmark aggregates the latest snapshot for the stats API. Both measure local userspace work and allocations.
+The collector benchmark uses 1,000, 10,000 and 100,000 distinct synthetic tuples. Kernel batch/iterator timings require the gated Linux runner.
+
+```sh
+ARGUS_BPF_TEST=1 ./bin/collector-kernel.test -test.run '^$' -test.bench '^BenchmarkKernelReadMap$' \
+  -test.benchmem -test.benchtime=3x -test.count=3
+```

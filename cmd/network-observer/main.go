@@ -41,7 +41,14 @@ func run() (err error) {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	if *iface != "" {
+	var interfaceSet bool
+	flag.Visit(func(f *flag.Flag) {
+		interfaceSet = interfaceSet || f.Name == "interface"
+	})
+	if interfaceSet {
+		if err := config.ValidateInterface(*iface); err != nil {
+			return err
+		}
 		cfg.Agent.Interface = *iface
 	}
 
@@ -61,7 +68,7 @@ func run() (err error) {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	bpfObjs, err := bpf.Load(cfg.Agent.Interface, log)
+	bpfObjs, err := bpf.Load(cfg.Agent.Interface, cfg.Agent.MapCapacity, log)
 	if err != nil {
 		return fmt.Errorf("loading eBPF programs onto %q: %w", cfg.Agent.Interface, err)
 	}
@@ -72,13 +79,14 @@ func run() (err error) {
 	}()
 
 	flowStore := store.NewFlowStore(60)
+	flowStore.SetAttached(true)
 
 	promExporter, err := exporter.NewPrometheusExporter(cfg.Agent.Interface, log)
 	if err != nil {
 		return fmt.Errorf("creating Prometheus exporter: %w", err)
 	}
 
-	apiHandler := api.NewHandler(flowStore, cfg.Agent.Interface, log)
+	apiHandler := api.NewHandler(flowStore, cfg.Agent.Interface, log, 3*cfg.Agent.CollectInterval)
 
 	serverDone := make(chan error, 1)
 	go func() {
@@ -90,7 +98,7 @@ func run() (err error) {
 	}()
 
 	flowCollector := collector.NewCollector(
-		bpfObjs, []exporter.Exporter{promExporter}, cfg.Agent.CollectInterval, log, flowStore,
+		bpfObjs, promExporter, cfg.Agent.MapCapacity, cfg.Agent.CollectInterval, log, flowStore,
 	)
 
 	log.WithFields(logrus.Fields{
@@ -115,10 +123,7 @@ func run() (err error) {
 func setupLogger(level, format string) *logrus.Logger {
 	log := logrus.New()
 
-	parsedLevel, err := logrus.ParseLevel(level)
-	if err != nil {
-		parsedLevel = logrus.InfoLevel
-	}
+	parsedLevel, _ := logrus.ParseLevel(level)
 	log.SetLevel(parsedLevel)
 
 	switch format {

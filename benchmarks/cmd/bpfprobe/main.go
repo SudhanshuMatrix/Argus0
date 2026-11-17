@@ -56,11 +56,9 @@ func inspectProgram(attached link.AttachedProgram, maps map[ebpf.MapID]bool) (pr
 	}
 	id, _ := attached.LinkID()
 	observed := program{ID: attached.ID, Name: info.Name, LinkID: id}
-	if count, ok := info.RunCount(); ok {
-		observed.RunCount = &count
-	}
-	if runtime, ok := info.Runtime(); ok {
-		ns := runtime.Nanoseconds()
+	if stats, err := p.Stats(); err == nil && stats.RunCount != 0 {
+		observed.RunCount = &stats.RunCount
+		ns := stats.Runtime.Nanoseconds()
 		observed.RuntimeNS = &ns
 	}
 	if mapIDs, ok := info.MapIDs(); ok {
@@ -71,16 +69,12 @@ func inspectProgram(attached link.AttachedProgram, maps map[ebpf.MapID]bool) (pr
 	return observed, nil
 }
 
-func inspectMap(id ebpf.MapID) (kernelMap, error) {
-	m, err := ebpf.NewMapFromID(id)
-	if err != nil {
-		return kernelMap{}, err
-	}
-	defer m.Close()
+func inspectMap(m *ebpf.Map) (kernelMap, error) {
 	info, err := m.Info()
 	if err != nil {
 		return kernelMap{}, err
 	}
+	id, _ := info.ID()
 	observed := kernelMap{ID: id, Name: info.Name, MaxEntries: info.MaxEntries, KeyBytes: info.KeySize, ValueBytes: info.ValueSize}
 	fdinfo, err := os.ReadFile(fmt.Sprintf("/proc/self/fdinfo/%d", m.FD()))
 	if err != nil {
@@ -96,6 +90,32 @@ func inspectMap(id ebpf.MapID) (kernelMap, error) {
 		}
 	}
 	return observed, nil
+}
+
+func observeMaps(id ebpf.MapID) ([]kernelMap, error) {
+	m, err := ebpf.NewMapFromID(id)
+	if err != nil {
+		return nil, err
+	}
+	defer m.Close()
+	outer, err := inspectMap(m)
+	if err != nil {
+		return nil, err
+	}
+	if m.Type() != ebpf.ArrayOfMaps {
+		return []kernelMap{outer}, nil
+	}
+
+	var inner *ebpf.Map
+	if err := m.Lookup(uint32(0), &inner); err != nil {
+		return nil, fmt.Errorf("observeMaps: reading active generation: %w", err)
+	}
+	defer inner.Close()
+	active, err := inspectMap(inner)
+	if err != nil {
+		return nil, err
+	}
+	return []kernelMap{outer, active}, nil
 }
 
 func observe(ifaceName string) (snapshot, error) {
@@ -122,11 +142,11 @@ func observe(ifaceName string) (snapshot, error) {
 		}
 	}
 	for id := range maps {
-		info, err := inspectMap(id)
+		observed, err := observeMaps(id)
 		if err != nil {
 			return snapshot{}, err
 		}
-		result.Maps = append(result.Maps, info)
+		result.Maps = append(result.Maps, observed...)
 	}
 	return result, nil
 }

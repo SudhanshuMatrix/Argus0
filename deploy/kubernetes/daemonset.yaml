@@ -3,9 +3,6 @@ kind: DaemonSet
 metadata:
   name: argus
   namespace: monitoring
-  labels:
-    app: argus
-    component: network-observer
 spec:
   selector:
     matchLabels:
@@ -18,133 +15,66 @@ spec:
     metadata:
       labels:
         app: argus
-        component: network-observer
-      annotations:
-        # Prometheus scrape configuration
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
-        prometheus.io/path: "/metrics"
     spec:
-      # Run on every node, including control-plane nodes.
-      tolerations:
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
-        - key: node-role.kubernetes.io/master
-          operator: Exists
-          effect: NoSchedule
-
-      # Host network mode is required so the eBPF program sees the node's
-      # actual network interfaces (eth0, ens3, etc.) rather than the pod's
-      # veth interface. Without this, we'd only see intra-pod traffic.
       hostNetwork: true
-      hostPID: true    # Required to read /proc/<pid>/comm for host processes
-
-      serviceAccountName: argus
-
+      automountServiceAccountToken: false
       containers:
         - name: argus
-          image: shudhanshusingh/argus:latest
-          imagePullPolicy: Always
-
+          image: argus:local
+          imagePullPolicy: IfNotPresent
           args:
             - "--config=/etc/argus/config.yaml"
             - "--interface=$(NODE_INTERFACE)"
-
           env:
             - name: NODE_INTERFACE
-              value: "eth0"  # Override per cluster if needed
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-
-          ports:
-            - name: metrics
-              containerPort: 9090
-              protocol: TCP
-
-          # eBPF programs require these capabilities:
-          #   CAP_BPF        — load BPF programs and access BPF maps
-          #   CAP_NET_ADMIN  — attach TC classifiers to interfaces
-          #   CAP_SYS_ADMIN  — access /proc and BTF (older kernels)
+              value: eth0
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
+              drop:
+                - ALL
               add:
-                - CAP_BPF
-                - CAP_NET_ADMIN
-                - CAP_SYS_ADMIN
+                - BPF
+                - NET_ADMIN
             readOnlyRootFilesystem: true
-            runAsNonRoot: false   # BPF loading currently requires root
             runAsUser: 0
-
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: "500m"
-              memory: "512Mi"
-
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
+              port: 9090
+            periodSeconds: 2
+            failureThreshold: 30
           livenessProbe:
             httpGet:
+              host: 127.0.0.1
               path: /healthz
               port: 9090
-            initialDelaySeconds: 10
             periodSeconds: 30
-
           readinessProbe:
             httpGet:
-              path: /healthz
+              host: 127.0.0.1
+              path: /readyz
               port: 9090
-            initialDelaySeconds: 5
-            periodSeconds: 10
-
+            periodSeconds: 5
+            failureThreshold: 1
           volumeMounts:
             - name: config
               mountPath: /etc/argus
               readOnly: true
-            - name: sys
-              mountPath: /sys
-              readOnly: true
-            - name: proc
-              mountPath: /proc
-              readOnly: true
-
       volumes:
         - name: config
           configMap:
             name: argus-config
-        - name: sys
-          hostPath:
-            path: /sys
-        - name: proc
-          hostPath:
-            path: /proc
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: argus
-  namespace: monitoring
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: argus
-  namespace: monitoring
-  labels:
-    app: argus
-spec:
-  selector:
-    app: argus
-  ports:
-    - name: metrics
-      port: 9090
-      targetPort: 9090
-
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -154,11 +84,11 @@ metadata:
 data:
   config.yaml: |
     agent:
-      interface: "eth0"
+      interface: eth0
       collect_interval: 5s
-      cache_ttl: 30s
+      map_capacity: 100000
     prometheus:
-      listen_addr: ":9090"
+      listen_addr: 127.0.0.1:9090
     logging:
-      level: "info"
-      format: "json"
+      level: info
+      format: json

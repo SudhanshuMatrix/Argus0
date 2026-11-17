@@ -134,11 +134,12 @@ def curl(namespace, path):
     return run(*nscmd(namespace, "curl", "-fsS", "--max-time", "2", METRICS + path))
 
 
-def agent_config(path, interval, level="info"):
+def agent_config(path, interval, level="info", capacity=None):
+    capacity_line = f"  map_capacity: {capacity}\n" if capacity is not None else ""
     path.write_text(f"""agent:
   interface: {IFACE}
   collect_interval: {interval}
-prometheus:
+{capacity_line}prometheus:
   listen_addr: '127.0.0.1:19090'
 logging:
   level: {level}
@@ -148,10 +149,8 @@ logging:
 
 def trial(args, left, right, workload, condition, raw, config):
     started = time.monotonic()
-    command = (
-        nscmd(left, args.argus, "-config", config)
-        if condition == "enabled" else None
-    )
+    binary = args.argus if condition == "enabled" else args.baseline_argus
+    command = nscmd(left, binary, "-config", config) if binary else None
     try:
         with contextlib.ExitStack() as stack:
             agent = None
@@ -210,6 +209,9 @@ def validate(args):
             raise ValueError(f"{tool} is required")
     if not args.argus.is_file() or not os.access(args.argus, os.X_OK):
         raise ValueError("--argus must point to an executable")
+    baseline = getattr(args, "baseline_argus", None)
+    if baseline and (not baseline.is_file() or not os.access(baseline, os.X_OK)):
+        raise ValueError("--baseline-argus must point to an executable")
     versions = {tool: run(tool, flag).splitlines()[0] for tool, flag in
                 (("ip", "-Version"), ("ethtool", "--version"), ("iperf3", "--version"), ("curl", "--version"))}
     if not versions["iperf3"].startswith(f"iperf {IPERF_VERSION} "):
@@ -232,7 +234,14 @@ def main(args):
         "tools": dict(versions, python=platform.python_version()),
         "source_revision": args.revision,
         "argus_sha256": hashlib.sha256(args.argus.read_bytes()).hexdigest(),
-        "configuration": vars(args) | {"argus": str(args.argus), "output": str(args.output)},
+        "baseline": {
+            "condition": "attached" if args.baseline_argus else "detached",
+            "revision": args.baseline_revision or args.revision,
+            "argus_sha256": hashlib.sha256(args.baseline_argus.read_bytes()).hexdigest()
+            if args.baseline_argus else None,
+        },
+        "configuration": {key: str(value) if isinstance(value, Path) else value
+                          for key, value in vars(args).items()},
         "topology": f"client namespace {CLIENT}/30 <-> veth <-> server namespace {SERVER}/30",
     })
     config = output / "agent.yaml"
@@ -277,6 +286,9 @@ def positive(value):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--argus", type=lambda s: Path(s).resolve(), required=True)
+    parser.add_argument("--baseline-argus", type=lambda s: Path(s).resolve(),
+                        help="attach this binary in baseline trials")
+    parser.add_argument("--baseline-revision", help="required with --baseline-argus")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--revision", required=True, help="tested Git revision, with -dirty if applicable")
     parser.add_argument("--environment", required=True, help="physical host, cloud VM, local VM, or emulator")
@@ -290,6 +302,8 @@ if __name__ == "__main__":
     parser.add_argument("--udp-length", type=positive, default=1200)
     parser.add_argument("--http-parallel", type=positive, default=2)
     arguments = parser.parse_args()
+    if bool(arguments.baseline_argus) != bool(arguments.baseline_revision):
+        parser.error("--baseline-argus and --baseline-revision must be used together")
     if any(not re.fullmatch(r"[1-9][0-9]*[KMG]?", rate) for rate in arguments.udp_rates):
         parser.error("UDP rates must be integer bit/s, optionally with a K, M or G suffix")
     for candidates in (arguments.workloads, arguments.tcp_streams, arguments.udp_rates):
